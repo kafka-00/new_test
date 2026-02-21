@@ -9,12 +9,16 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
 )
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service as ChromeService
+from webdriver_manager.chrome import ChromeDriverManager
 
 class TestAutomationTool(QMainWindow):
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle("Test Automation Tool")
+        self.driver = None
 
         # Main widget and layout
         main_widget = QWidget()
@@ -57,13 +61,17 @@ class TestAutomationTool(QMainWindow):
             print("Please enter and save a URL first.")
             return
         print("Start recording test actions...")
+        
+        # Initialize WebDriver and open the URL
+        self.driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
+        self.driver.get(self.saved_url)
+
 
     def start_test(self):
         if not self.saved_url:
             print("Please enter and save a URL first.")
             return
         print("Start running the test...")
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
