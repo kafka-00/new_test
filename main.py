@@ -3,7 +3,7 @@ import sys
 import json
 import threading
 import time
-from PySide6.QtCore import Signal, QObject
+from PySide6.QtCore import Signal, QObject, Qt
 from PySide6.QtGui import QShortcut, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
@@ -95,10 +95,19 @@ class TestAutomationTool(QMainWindow):
         self.load_button.clicked.connect(self.load_test)
         self.delete_button.clicked.connect(self.delete_selected_steps)
 
-        # --- Shortcuts ---
-        # Set the shortcut's parent to self (the main window) to make it global
-        delete_shortcut = QShortcut(QKeySequence.StandardKey.Delete, self)
-        delete_shortcut.activated.connect(self.delete_selected_steps)
+        # --- Shortcuts for Deletion ---
+        # Standard 'Delete' key for Windows/Linux and 'Fn+Backspace' on Mac
+        delete_shortcut_del = QShortcut(QKeySequence.StandardKey.Delete, self)
+        delete_shortcut_del.activated.connect(self.delete_selected_steps)
+
+        # 'Backspace' key for Macs without a dedicated 'Del' key
+        delete_shortcut_bsp = QShortcut(QKeySequence(Qt.Key.Key_Backspace), self)
+        delete_shortcut_bsp.activated.connect(self.delete_selected_steps)
+
+        # Explicitly add 'Cmd+Backspace' for macOS users
+        if sys.platform == 'darwin':
+            mac_delete_shortcut = QShortcut(QKeySequence("Meta+Backspace"), self)
+            mac_delete_shortcut.activated.connect(self.delete_selected_steps)
 
         self.saved_url = ""
         self.recorded_actions = []
@@ -189,7 +198,8 @@ class TestAutomationTool(QMainWindow):
     def delete_selected_steps(self):
         selected_rows_indices = self.steps_table.selectionModel().selectedRows()
         if not selected_rows_indices:
-            print("No step selected to delete.")
+            # This is a safety check. If no rows are selected, do nothing.
+            # This prevents accidental deletion when using backspace in other widgets.
             return
 
         rows_to_delete = sorted(list(set(index.row() for index in selected_rows_indices)), reverse=True)
