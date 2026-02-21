@@ -96,7 +96,8 @@ class TestAutomationTool(QMainWindow):
         self.delete_button.clicked.connect(self.delete_selected_steps)
 
         # --- Shortcuts ---
-        delete_shortcut = QShortcut(QKeySequence.StandardKey.Delete, self.steps_table)
+        # Set the shortcut's parent to self (the main window) to make it global
+        delete_shortcut = QShortcut(QKeySequence.StandardKey.Delete, self)
         delete_shortcut.activated.connect(self.delete_selected_steps)
 
         self.saved_url = ""
@@ -296,7 +297,6 @@ class TestAutomationTool(QMainWindow):
                 
                 print("--- Loading Test Case ---")
                 for action in self.recorded_actions:
-                    # Note the is_loading=True flag to prevent duplication
                     self.add_action_to_table(action, is_loading=True)
                 print(f"Test case loaded from {file_path}")
 
