@@ -4,7 +4,7 @@ import json
 import threading
 import time
 from PySide6.QtCore import Signal, QObject, Qt
-from PySide6.QtGui import QShortcut, QKeySequence
+from PySide6.QtGui import QKeySequence, QKeyEvent
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -29,6 +29,39 @@ from selenium.common.exceptions import JavascriptException, WebDriverException, 
 class RecordingSignals(QObject):
     finished = Signal()
     action_recorded = Signal(dict)
+
+
+class DeletableTableWidget(QTableWidget):
+    """A custom table widget that emits a signal when a delete key is pressed and includes debug logging."""
+    delete_triggered = Signal()
+
+    def keyPressEvent(self, event: QKeyEvent):
+        """Reimplement to capture delete keys and add extensive debugging output."""
+        print("\n--- Key Press Event Fired ---")
+        print(f"[DEBUG] Platform: {sys.platform}")
+        print(f"[DEBUG] Key Pressed (raw): {event.key()}")
+        print(f"[DEBUG] Modifier Keys (raw): {event.modifiers()}")
+        print(f"[DEBUG] Is Qt.Key.Key_Backspace?: {event.key() == Qt.Key.Key_Backspace}")
+        print(f"[DEBUG] Is Qt.Key.Key_Delete?: {event.key() == Qt.Key.Key_Delete}")
+        print(f"[DEBUG] Is MetaModifier (Cmd) pressed?: {event.modifiers() == Qt.KeyboardModifier.MetaModifier}")
+        print("-----------------------------")
+
+        is_delete_key = False
+        # Mac-specific 'Cmd+Backspace'
+        if sys.platform == 'darwin' and event.key() == Qt.Key.Key_Backspace and event.modifiers() == Qt.KeyboardModifier.MetaModifier:
+            print("[INFO] Condition matched: Mac 'Cmd+Backspace'")
+            is_delete_key = True
+        # Standard Delete key (covers Windows 'Del' and Mac 'fn+Backspace')
+        elif event.key() == Qt.Key.Key_Delete:
+            print("[INFO] Condition matched: Standard 'Delete' key")
+            is_delete_key = True
+
+        if is_delete_key:
+            print("[SUCCESS] A delete key combination was recognized. Emitting signal.")
+            self.delete_triggered.emit()
+        else:
+            print("[INFO] No delete combination matched. Passing event to parent class.")
+            super().keyPressEvent(event)
 
 
 class TestAutomationTool(QMainWindow):
@@ -77,8 +110,8 @@ class TestAutomationTool(QMainWindow):
 
         main_layout.addLayout(controls_layout)
 
-        # --- Steps Table ---
-        self.steps_table = QTableWidget()
+        # --- Steps Table (Using the new custom widget) ---
+        self.steps_table = DeletableTableWidget()
         self.steps_table.setColumnCount(4)
         self.steps_table.setHorizontalHeaderLabels(["Step", "Action", "Selector", "Value"])
         header = self.steps_table.horizontalHeader()
@@ -97,18 +130,7 @@ class TestAutomationTool(QMainWindow):
         self.load_button.clicked.connect(self.load_test)
         self.delete_button.clicked.connect(self.delete_selected_steps)
         self.steps_table.cellChanged.connect(self.update_step_data)
-
-        # --- Shortcuts for Deletion ---
-        delete_shortcut_del = QShortcut(QKeySequence.StandardKey.Delete, self)
-        delete_shortcut_del.activated.connect(self.delete_selected_steps)
-
-        if sys.platform == 'darwin':
-            mac_delete_shortcut = QShortcut(QKeySequence("Meta+Backspace"), self)
-            mac_delete_shortcut.activated.connect(self.delete_selected_steps)
-        else:
-            # For non-macOS, Backspace might also be a convenient delete key
-            delete_shortcut_bsp = QShortcut(QKeySequence(Qt.Key.Key_Backspace), self)
-            delete_shortcut_bsp.activated.connect(self.delete_selected_steps)
+        self.steps_table.delete_triggered.connect(self.delete_selected_steps)
 
         self.saved_url = ""
         self.recorded_actions = []
@@ -179,7 +201,6 @@ class TestAutomationTool(QMainWindow):
         selector = QTableWidgetItem(action.get("selector", ""))
         value = QTableWidgetItem(action.get("value", ""))
 
-        # Make "Step" and "Action" columns read-only
         step_num.setFlags(step_num.flags() & ~Qt.ItemIsEditable)
         action_type.setFlags(action_type.flags() & ~Qt.ItemIsEditable)
 
@@ -205,7 +226,6 @@ class TestAutomationTool(QMainWindow):
         if not selected_rows_indices:
             return
 
-        # Block signals to prevent cellChanged from firing during row removal
         self.steps_table.blockSignals(True)
         rows_to_delete = sorted(list(set(index.row() for index in selected_rows_indices)), reverse=True)
 
@@ -213,7 +233,6 @@ class TestAutomationTool(QMainWindow):
             self.steps_table.removeRow(row_index)
             self.recorded_actions.pop(row_index)
         
-        # Re-number the steps
         for i in range(self.steps_table.rowCount()):
             self.steps_table.setItem(i, 0, QTableWidgetItem(str(i + 1)))
         
@@ -221,7 +240,6 @@ class TestAutomationTool(QMainWindow):
         print(f"Deleted {len(rows_to_delete)} step(s).")
 
     def update_step_data(self, row, column):
-        # Ensure the action list is not empty and row is within bounds
         if not self.recorded_actions or row >= len(self.recorded_actions):
             return
 
@@ -308,7 +326,7 @@ class TestAutomationTool(QMainWindow):
                 print(f"Error saving file: {e}")
 
     def load_test(self):
-        self.steps_table.blockSignals(True) # Block signals during load
+        self.steps_table.blockSignals(True)
         self.steps_table.setRowCount(0)
 
         file_path, _ = QFileDialog.getOpenFileName(
@@ -335,7 +353,7 @@ class TestAutomationTool(QMainWindow):
 
             except Exception as e:
                 print(f"Error loading file: {e}")
-        self.steps_table.blockSignals(False) # Unblock signals after load
+        self.steps_table.blockSignals(False)
 
     def closeEvent(self, event):
         self.is_recording = False
