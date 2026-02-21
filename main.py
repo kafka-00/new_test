@@ -60,11 +60,15 @@ class TestAutomationTool(QMainWindow):
         print("Start recording test actions...")
         
         try:
-            self.driver = webdriver.Chrome()
+            options = webdriver.ChromeOptions()
+            options.browser_version = 'stable'  # This forces Selenium to use the latest stable Chrome for Testing
+
+            self.driver = webdriver.Chrome(options=options)
             self.driver.get(self.saved_url)
         except Exception as e:
             print(f"Error starting browser: {e}")
-            print("Please ensure you have a compatible version of Chrome or Chrome for Testing installed.")
+            print("This may be due to a network issue or permissions. Please check your connection and try again.")
+
 
     def start_test(self):
         if not self.saved_url:
