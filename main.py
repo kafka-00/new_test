@@ -41,6 +41,29 @@ class TestAutomationTool(QMainWindow):
         main_layout.addLayout(url_layout)
         main_layout.addLayout(buttons_layout)
 
+        # Connect signals to slots
+        save_button.clicked.connect(self.save_url)
+        record_button.clicked.connect(self.start_recording)
+        start_button.clicked.connect(self.start_test)
+        
+        self.saved_url = ""
+
+    def save_url(self):
+        self.saved_url = self.url_input.text()
+        print(f"URL saved: {self.saved_url}")
+
+    def start_recording(self):
+        if not self.saved_url:
+            print("Please enter and save a URL first.")
+            return
+        print("Start recording test actions...")
+
+    def start_test(self):
+        if not self.saved_url:
+            print("Please enter and save a URL first.")
+            return
+        print("Start running the test...")
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
