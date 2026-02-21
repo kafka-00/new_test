@@ -65,8 +65,8 @@ class TestAutomationTool(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Test Automation Tool")
-        self.resize(1000, 700)
+        self.setWindowTitle("QUATY Automation Tool") # Changed title
+        self.resize(1200, 800) # Increased size
         self.driver = None
         self.test_driver = None
         self.is_recording = False
@@ -109,8 +109,10 @@ class TestAutomationTool(QMainWindow):
         controls_layout.addLayout(url_layout)
 
         buttons_layout = QHBoxLayout()
-        self.record_button = QPushButton("Test Recording")
-        self.start_button = QPushButton("Test Start")
+        self.record_button = QPushButton("Start Recording")
+        self.record_button.setObjectName("record_button") # Set object name for styling
+        self.start_button = QPushButton("Test Run")
+        self.start_button.setObjectName("start_button") # Set object name for styling
         buttons_layout.addWidget(self.record_button)
         buttons_layout.addWidget(self.start_button)
         controls_layout.addLayout(buttons_layout)
@@ -139,10 +141,11 @@ class TestAutomationTool(QMainWindow):
 
         self.log_window = QTextEdit()
         self.log_window.setReadOnly(True)
+        self.log_window.setObjectName("execution_log")
         content_splitter.addWidget(self.log_window)
-        content_splitter.setSizes([400, 300])
+        content_splitter.setSizes([500, 300])
 
-        main_splitter.setSizes([200, 800])
+        main_splitter.setSizes([250, 950])
 
         save_url_button.clicked.connect(self.save_url)
         self.record_button.clicked.connect(self.start_recording)
@@ -156,7 +159,6 @@ class TestAutomationTool(QMainWindow):
         self.saved_url = ""
         self.recorded_actions = []
 
-        # Redirect only stdout for print statements
         self.log_stream = Stream()
         self.log_stream.new_text.connect(self.append_log)
         sys.stdout = self.log_stream
@@ -205,7 +207,6 @@ class TestAutomationTool(QMainWindow):
             self.recording_thread.start()
 
         except Exception as e:
-            # This exception will now be handled by the custom excepthook
             raise e
 
     def listen_for_actions(self, recorder_script):
@@ -331,7 +332,6 @@ class TestAutomationTool(QMainWindow):
                     break
 
         except Exception as e:
-            # This will also be caught by the excepthook
             raise e
         finally:
             print("--- Test Execution Finished ---")
@@ -390,7 +390,6 @@ class TestAutomationTool(QMainWindow):
             print(f"Test case loaded successfully.")
 
         except Exception as e:
-            # This will also be caught by the excepthook
             self.steps_table.blockSignals(False)
             raise e
         finally:
@@ -410,7 +409,6 @@ class TestAutomationTool(QMainWindow):
             except WebDriverException:
                 pass
         
-        # Restore original stdout and excepthook
         sys.stdout = sys.__stdout__
         sys.excepthook = sys.__excepthook__
         event.accept()
@@ -418,16 +416,22 @@ class TestAutomationTool(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+
+    # Load and apply stylesheet
+    try:
+        with open("stylesheet.qss", "r") as f:
+            stylesheet = f.read()
+        app.setStyleSheet(stylesheet)
+    except FileNotFoundError:
+        print("stylesheet.qss not found, using default style.")
+
     window = TestAutomationTool()
 
     # --- Custom Exception Hook --- #
     def handle_exception(exc_type, exc_value, exc_traceback):
-        """Handle uncaught exceptions by logging them to the GUI and console."""
-        # Always print to the original console for safety
         sys.__stderr__.write("\n--- UNCAUGHT EXCEPTION ---\n")
         sys.__stderr__.write("".join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
         
-        # Also log to the GUI window if it exists
         if hasattr(window, 'log_window'):
             error_msg = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
             window.append_log(f"--- UNCAUGHT EXCEPTION ---\n{error_msg}")
