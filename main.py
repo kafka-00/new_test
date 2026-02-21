@@ -4,6 +4,7 @@ import os
 import json
 import threading
 import time
+import traceback
 from PySide6.QtCore import Signal, QObject, Qt, QDir
 from PySide6.QtGui import QKeySequence, QKeyEvent
 from PySide6.QtWidgets import (
@@ -30,8 +31,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import JavascriptException, WebDriverException, TimeoutException
 
-# --- Stream Redirection --- #
+# --- Stream Redirection for stdout --- #
 class Stream(QObject):
+    """Redirects console output (stdout) to a QTextEdit widget."""
     new_text = Signal(str)
 
     def write(self, text):
@@ -154,10 +156,10 @@ class TestAutomationTool(QMainWindow):
         self.saved_url = ""
         self.recorded_actions = []
 
+        # Redirect only stdout for print statements
         self.log_stream = Stream()
         self.log_stream.new_text.connect(self.append_log)
         sys.stdout = self.log_stream
-        sys.stderr = self.log_stream
 
         print("Application started. Logs will appear here.")
 
@@ -203,8 +205,8 @@ class TestAutomationTool(QMainWindow):
             self.recording_thread.start()
 
         except Exception as e:
-            print(f"Error starting browser for recording: {e}")
-            self.handle_recording_finished()
+            # This exception will now be handled by the custom excepthook
+            raise e
 
     def listen_for_actions(self, recorder_script):
         while self.is_recording:
@@ -257,17 +259,20 @@ class TestAutomationTool(QMainWindow):
     def delete_selected_steps(self):
         selected_rows_indices = self.steps_table.selectionModel().selectedRows()
         if not selected_rows_indices:
+            print("No steps selected to delete.")
             return
 
         self.steps_table.blockSignals(True)
-        rows_to_delete = sorted(list(set(index.row() for index in selected_rows_indices)), reverse=True)
+        rows_to_delete = sorted([index.row() for index in selected_rows_indices], reverse=True)
 
         for row_index in rows_to_delete:
             self.steps_table.removeRow(row_index)
             self.recorded_actions.pop(row_index)
         
         for i in range(self.steps_table.rowCount()):
-            self.steps_table.setItem(i, 0, QTableWidgetItem(str(i + 1)))
+            item = self.steps_table.item(i, 0)
+            if item:
+                item.setText(str(i + 1))
         
         self.steps_table.blockSignals(False)
         print(f"Deleted {len(rows_to_delete)} step(s).")
@@ -326,7 +331,8 @@ class TestAutomationTool(QMainWindow):
                     break
 
         except Exception as e:
-            print(f"An error occurred setting up the test browser: {e}")
+            # This will also be caught by the excepthook
+            raise e
         finally:
             print("--- Test Execution Finished ---")
             if self.test_driver:
@@ -359,7 +365,7 @@ class TestAutomationTool(QMainWindow):
                     json.dump(test_case, f, indent=4)
                 print(f"Test case saved to {os.path.basename(file_path)}")
             except Exception as e:
-                print(f"Error saving file: {e}")
+                raise e
 
     def load_test_from_explorer(self, index):
         file_path = self.file_model.filePath(index)
@@ -384,7 +390,9 @@ class TestAutomationTool(QMainWindow):
             print(f"Test case loaded successfully.")
 
         except Exception as e:
-            print(f"Error loading file: {e}")
+            # This will also be caught by the excepthook
+            self.steps_table.blockSignals(False)
+            raise e
         finally:
             self.steps_table.blockSignals(False)
 
@@ -401,13 +409,30 @@ class TestAutomationTool(QMainWindow):
                 self.test_driver.quit()
             except WebDriverException:
                 pass
+        
+        # Restore original stdout and excepthook
         sys.stdout = sys.__stdout__
-        sys.stderr = sys.__stderr__
+        sys.excepthook = sys.__excepthook__
         event.accept()
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = TestAutomationTool()
+
+    # --- Custom Exception Hook --- #
+    def handle_exception(exc_type, exc_value, exc_traceback):
+        """Handle uncaught exceptions by logging them to the GUI and console."""
+        # Always print to the original console for safety
+        sys.__stderr__.write("\n--- UNCAUGHT EXCEPTION ---\n")
+        sys.__stderr__.write("".join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
+        
+        # Also log to the GUI window if it exists
+        if hasattr(window, 'log_window'):
+            error_msg = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+            window.append_log(f"--- UNCAUGHT EXCEPTION ---\n{error_msg}")
+
+    sys.excepthook = handle_exception
+    
     window.show()
     sys.exit(app.exec())
