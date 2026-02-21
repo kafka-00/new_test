@@ -66,12 +66,6 @@ class TestAutomationTool(QMainWindow):
             self.driver = webdriver.Chrome(options=options)
             self.driver.get(self.saved_url)
 
-            # --- DIAGNOSTIC CODE START ---
-            print("\n--- WebDriver Capabilities ---")
-            print(self.driver.capabilities)
-            print("----------------------------\n")
-            # --- DIAGNOSTIC CODE END ---
-
         except Exception as e:
             print(f"Error starting browser: {e}")
             print("This may be due to a network issue or permissions. Please check your connection and try again.")
