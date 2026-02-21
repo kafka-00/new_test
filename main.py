@@ -32,35 +32,25 @@ class RecordingSignals(QObject):
 
 
 class DeletableTableWidget(QTableWidget):
-    """A custom table widget that emits a signal when a delete key is pressed and includes debug logging."""
+    """A custom table widget that emits a signal when the correct delete key is pressed."""
     delete_triggered = Signal()
 
     def keyPressEvent(self, event: QKeyEvent):
-        """Reimplement to capture delete keys and add extensive debugging output."""
-        print("\n--- Key Press Event Fired ---")
-        print(f"[DEBUG] Platform: {sys.platform}")
-        print(f"[DEBUG] Key Pressed (raw): {event.key()}")
-        print(f"[DEBUG] Modifier Keys (raw): {event.modifiers()}")
-        print(f"[DEBUG] Is Qt.Key.Key_Backspace?: {event.key() == Qt.Key.Key_Backspace}")
-        print(f"[DEBUG] Is Qt.Key.Key_Delete?: {event.key() == Qt.Key.Key_Delete}")
-        print(f"[DEBUG] Is MetaModifier (Cmd) pressed?: {event.modifiers() == Qt.KeyboardModifier.MetaModifier}")
-        print("-----------------------------")
-
+        """Reimplement to capture delete keys for different platforms."""
         is_delete_key = False
+
         # Mac-specific 'Cmd+Backspace'
-        if sys.platform == 'darwin' and event.key() == Qt.Key.Key_Backspace and event.modifiers() == Qt.KeyboardModifier.MetaModifier:
-            print("[INFO] Condition matched: Mac 'Cmd+Backspace'")
+        # Based on debug logs, Cmd on this Mac setup maps to ControlModifier.
+        if sys.platform == 'darwin' and event.key() == Qt.Key.Key_Backspace and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
             is_delete_key = True
         # Standard Delete key (covers Windows 'Del' and Mac 'fn+Backspace')
         elif event.key() == Qt.Key.Key_Delete:
-            print("[INFO] Condition matched: Standard 'Delete' key")
             is_delete_key = True
 
         if is_delete_key:
-            print("[SUCCESS] A delete key combination was recognized. Emitting signal.")
             self.delete_triggered.emit()
         else:
-            print("[INFO] No delete combination matched. Passing event to parent class.")
+            # Handle all other key presses (like navigation, editing) normally
             super().keyPressEvent(event)
 
 
@@ -110,7 +100,7 @@ class TestAutomationTool(QMainWindow):
 
         main_layout.addLayout(controls_layout)
 
-        # --- Steps Table (Using the new custom widget) ---
+        # --- Steps Table (Using the custom widget) ---
         self.steps_table = DeletableTableWidget()
         self.steps_table.setColumnCount(4)
         self.steps_table.setHorizontalHeaderLabels(["Step", "Action", "Selector", "Value"])
@@ -190,6 +180,7 @@ class TestAutomationTool(QMainWindow):
         self.signals.finished.emit()
 
     def add_action_to_table(self, action, is_loading=False):
+        self.steps_table.blockSignals(True)
         if not is_loading:
             self.recorded_actions.append(action)
 
@@ -208,6 +199,7 @@ class TestAutomationTool(QMainWindow):
         self.steps_table.setItem(row_position, 1, action_type)
         self.steps_table.setItem(row_position, 2, selector)
         self.steps_table.setItem(row_position, 3, value)
+        self.steps_table.blockSignals(False)
 
     def handle_recording_finished(self):
         print("...Recording finished.")
