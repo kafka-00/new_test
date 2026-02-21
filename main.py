@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QHeaderView,
     QFileDialog,
+    QAbstractItemView
 )
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -85,6 +86,7 @@ class TestAutomationTool(QMainWindow):
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.steps_table.setEditTriggers(QAbstractItemView.DoubleClicked)
         main_layout.addWidget(self.steps_table)
 
         # --- Connections ---
@@ -94,20 +96,19 @@ class TestAutomationTool(QMainWindow):
         self.save_button.clicked.connect(self.save_test)
         self.load_button.clicked.connect(self.load_test)
         self.delete_button.clicked.connect(self.delete_selected_steps)
+        self.steps_table.cellChanged.connect(self.update_step_data)
 
         # --- Shortcuts for Deletion ---
-        # Standard 'Delete' key for Windows/Linux and 'Fn+Backspace' on Mac
         delete_shortcut_del = QShortcut(QKeySequence.StandardKey.Delete, self)
         delete_shortcut_del.activated.connect(self.delete_selected_steps)
 
-        # 'Backspace' key for Macs without a dedicated 'Del' key
-        delete_shortcut_bsp = QShortcut(QKeySequence(Qt.Key.Key_Backspace), self)
-        delete_shortcut_bsp.activated.connect(self.delete_selected_steps)
-
-        # Explicitly add 'Cmd+Backspace' for macOS users
         if sys.platform == 'darwin':
             mac_delete_shortcut = QShortcut(QKeySequence("Meta+Backspace"), self)
             mac_delete_shortcut.activated.connect(self.delete_selected_steps)
+        else:
+            # For non-macOS, Backspace might also be a convenient delete key
+            delete_shortcut_bsp = QShortcut(QKeySequence(Qt.Key.Key_Backspace), self)
+            delete_shortcut_bsp.activated.connect(self.delete_selected_steps)
 
         self.saved_url = ""
         self.recorded_actions = []
@@ -178,6 +179,10 @@ class TestAutomationTool(QMainWindow):
         selector = QTableWidgetItem(action.get("selector", ""))
         value = QTableWidgetItem(action.get("value", ""))
 
+        # Make "Step" and "Action" columns read-only
+        step_num.setFlags(step_num.flags() & ~Qt.ItemIsEditable)
+        action_type.setFlags(action_type.flags() & ~Qt.ItemIsEditable)
+
         self.steps_table.setItem(row_position, 0, step_num)
         self.steps_table.setItem(row_position, 1, action_type)
         self.steps_table.setItem(row_position, 2, selector)
@@ -198,20 +203,36 @@ class TestAutomationTool(QMainWindow):
     def delete_selected_steps(self):
         selected_rows_indices = self.steps_table.selectionModel().selectedRows()
         if not selected_rows_indices:
-            # This is a safety check. If no rows are selected, do nothing.
-            # This prevents accidental deletion when using backspace in other widgets.
             return
 
+        # Block signals to prevent cellChanged from firing during row removal
+        self.steps_table.blockSignals(True)
         rows_to_delete = sorted(list(set(index.row() for index in selected_rows_indices)), reverse=True)
 
         for row_index in rows_to_delete:
             self.steps_table.removeRow(row_index)
             self.recorded_actions.pop(row_index)
         
+        # Re-number the steps
         for i in range(self.steps_table.rowCount()):
             self.steps_table.setItem(i, 0, QTableWidgetItem(str(i + 1)))
-
+        
+        self.steps_table.blockSignals(False)
         print(f"Deleted {len(rows_to_delete)} step(s).")
+
+    def update_step_data(self, row, column):
+        # Ensure the action list is not empty and row is within bounds
+        if not self.recorded_actions or row >= len(self.recorded_actions):
+            return
+
+        new_value = self.steps_table.item(row, column).text()
+        key_map = {2: "selector", 3: "value"}
+
+        if column in key_map:
+            key_to_update = key_map[column]
+            if self.recorded_actions[row][key_to_update] != new_value:
+                self.recorded_actions[row][key_to_update] = new_value
+                print(f"Updated Step {row + 1}: Set '{key_to_update}' to '{new_value}'")
 
     def start_test(self):
         if not self.recorded_actions:
@@ -287,6 +308,9 @@ class TestAutomationTool(QMainWindow):
                 print(f"Error saving file: {e}")
 
     def load_test(self):
+        self.steps_table.blockSignals(True) # Block signals during load
+        self.steps_table.setRowCount(0)
+
         file_path, _ = QFileDialog.getOpenFileName(
             self, 
             "Load Test Case", 
@@ -303,8 +327,7 @@ class TestAutomationTool(QMainWindow):
                 self.url_input.setText(self.saved_url)
                 
                 self.recorded_actions = test_case.get("actions", [])
-                self.steps_table.setRowCount(0)
-                
+                                
                 print("--- Loading Test Case ---")
                 for action in self.recorded_actions:
                     self.add_action_to_table(action, is_loading=True)
@@ -312,6 +335,7 @@ class TestAutomationTool(QMainWindow):
 
             except Exception as e:
                 print(f"Error loading file: {e}")
+        self.steps_table.blockSignals(False) # Unblock signals after load
 
     def closeEvent(self, event):
         self.is_recording = False
