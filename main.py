@@ -1,5 +1,6 @@
 
 import sys
+import json
 import threading
 import time
 from PySide6.QtCore import Signal, QObject
@@ -14,6 +15,7 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QHeaderView,
+    QFileDialog,
 )
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -45,23 +47,37 @@ class TestAutomationTool(QMainWindow):
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
 
+        # --- Controls Layout ---
         controls_layout = QVBoxLayout()
+
+        # URL Layout
         url_layout = QHBoxLayout()
         self.url_input = QLineEdit()
         self.url_input.setPlaceholderText("Enter URL and save before recording...")
-        save_button = QPushButton("Save URL")
+        save_url_button = QPushButton("Save URL")
         url_layout.addWidget(self.url_input)
-        url_layout.addWidget(save_button)
+        url_layout.addWidget(save_url_button)
         controls_layout.addLayout(url_layout)
 
+        # Main Buttons Layout
         buttons_layout = QHBoxLayout()
         self.record_button = QPushButton("Test Recording")
         self.start_button = QPushButton("Test Start")
         buttons_layout.addWidget(self.record_button)
         buttons_layout.addWidget(self.start_button)
         controls_layout.addLayout(buttons_layout)
+        
+        # File Operations Layout
+        file_ops_layout = QHBoxLayout()
+        self.save_button = QPushButton("Save Test")
+        self.load_button = QPushButton("Load Test")
+        file_ops_layout.addWidget(self.save_button)
+        file_ops_layout.addWidget(self.load_button)
+        controls_layout.addLayout(file_ops_layout)
+
         main_layout.addLayout(controls_layout)
 
+        # --- Steps Table ---
         self.steps_table = QTableWidget()
         self.steps_table.setColumnCount(4)
         self.steps_table.setHorizontalHeaderLabels(["Step", "Action", "Selector", "Value"])
@@ -72,9 +88,12 @@ class TestAutomationTool(QMainWindow):
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         main_layout.addWidget(self.steps_table)
 
-        save_button.clicked.connect(self.save_url)
+        # --- Connections ---
+        save_url_button.clicked.connect(self.save_url)
         self.record_button.clicked.connect(self.start_recording)
         self.start_button.clicked.connect(self.start_test)
+        self.save_button.clicked.connect(self.save_test)
+        self.load_button.clicked.connect(self.load_test)
 
         self.saved_url = ""
         self.recorded_actions = []
@@ -133,8 +152,9 @@ class TestAutomationTool(QMainWindow):
                 pass
         self.signals.finished.emit()
 
-    def add_action_to_table(self, action):
-        self.recorded_actions.append(action)
+    def add_action_to_table(self, action, is_loading=False):
+        if not is_loading:
+            self.recorded_actions.append(action)
         print(f"Action recorded: {action}")
 
         row_position = self.steps_table.rowCount()
@@ -210,6 +230,57 @@ class TestAutomationTool(QMainWindow):
                 self.test_driver.quit()
             self.record_button.setEnabled(True)
             self.start_button.setEnabled(True)
+            
+    def save_test(self):
+        if not self.recorded_actions:
+            print("No actions to save.")
+            return
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, 
+            "Save Test Case", 
+            "", 
+            "Test Case Files (*.json);;All Files (*)"
+        )
+
+        if file_path:
+            test_case = {
+                "url": self.saved_url,
+                "actions": self.recorded_actions
+            }
+            try:
+                with open(file_path, 'w') as f:
+                    json.dump(test_case, f, indent=4)
+                print(f"Test case saved to {file_path}")
+            except Exception as e:
+                print(f"Error saving file: {e}")
+
+    def load_test(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "Load Test Case", 
+            "", 
+            "Test Case Files (*.json);;All Files (*)"
+        )
+
+        if file_path:
+            try:
+                with open(file_path, 'r') as f:
+                    test_case = json.load(f)
+
+                self.saved_url = test_case.get("url", "")
+                self.url_input.setText(self.saved_url)
+                
+                self.recorded_actions = test_case.get("actions", [])
+                self.steps_table.setRowCount(0)
+                
+                print("--- Loading Test Case ---")
+                for action in self.recorded_actions:
+                    self.add_action_to_table(action, is_loading=True)
+                print(f"Test case loaded from {file_path}")
+
+            except Exception as e:
+                print(f"Error loading file: {e}")
 
     def closeEvent(self, event):
         self.is_recording = False
