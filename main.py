@@ -32,7 +32,7 @@ class TestAutomationTool(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("Test Automation Tool")
-        self.resize(800, 600)  # Set a default size
+        self.resize(800, 600)
         self.driver = None
         self.test_driver = None
         self.is_recording = False
@@ -45,7 +45,6 @@ class TestAutomationTool(QMainWindow):
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
 
-        # --- URL and Control Buttons ---
         controls_layout = QVBoxLayout()
         url_layout = QHBoxLayout()
         self.url_input = QLineEdit()
@@ -63,7 +62,6 @@ class TestAutomationTool(QMainWindow):
         controls_layout.addLayout(buttons_layout)
         main_layout.addLayout(controls_layout)
 
-        # --- Steps Table ---
         self.steps_table = QTableWidget()
         self.steps_table.setColumnCount(4)
         self.steps_table.setHorizontalHeaderLabels(["Step", "Action", "Selector", "Value"])
@@ -102,7 +100,7 @@ class TestAutomationTool(QMainWindow):
         self.record_button.setEnabled(False)
         self.start_button.setEnabled(False)
         self.recorded_actions = []
-        self.steps_table.setRowCount(0)  # Clear table
+        self.steps_table.setRowCount(0)
 
         try:
             options = webdriver.ChromeOptions()
@@ -124,7 +122,7 @@ class TestAutomationTool(QMainWindow):
     def listen_for_actions(self, recorder_script):
         while self.is_recording:
             try:
-                self.driver.current_url  # Check if browser is alive
+                self.driver.current_url
                 action = self.driver.execute_async_script(recorder_script)
                 if action:
                     self.signals.action_recorded.emit(action)
@@ -143,9 +141,9 @@ class TestAutomationTool(QMainWindow):
         self.steps_table.insertRow(row_position)
 
         step_num = QTableWidgetItem(str(row_position + 1))
-        action_type = QTableWidgetItem(action.get('type', ''))
-        selector = QTableWidgetItem(action.get('selector', ''))
-        value = QTableWidgetItem(action.get('value', ''))
+        action_type = QTableWidgetItem(action.get("type", ""))
+        selector = QTableWidgetItem(action.get("selector", ""))
+        value = QTableWidgetItem(action.get("value", ""))
 
         self.steps_table.setItem(row_position, 0, step_num)
         self.steps_table.setItem(row_position, 1, action_type)
@@ -168,10 +166,64 @@ class TestAutomationTool(QMainWindow):
         if not self.recorded_actions:
             print("No actions recorded to test. Please record a session first.")
             return
-        # ... (rest of the function is unchanged)
+        if not self.saved_url:
+            print("URL not set. Please save a URL before starting a test.")
+            return
+
+        print("--- Starting Test Execution ---")
+        self.record_button.setEnabled(False)
+        self.start_button.setEnabled(False)
+
+        try:
+            options = webdriver.ChromeOptions()
+            options.browser_version = 'dev'
+            self.test_driver = webdriver.Chrome(options=options)
+            self.test_driver.get(self.saved_url)
+            wait = WebDriverWait(self.test_driver, 10)
+
+            for i, action in enumerate(self.recorded_actions, 1):
+                print(f"Step {i}/{len(self.recorded_actions)}: {action['type']} on '{action['selector']}'")
+                try:
+                    selector = action['selector']
+                    element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
+
+                    if action['type'] == 'click':
+                        element.click()
+                    elif action['type'] == 'input':
+                        element.clear()
+                        element.send_keys(action['value'])
+
+                    time.sleep(1)
+
+                except TimeoutException:
+                    print(f"  \033[91mError: Element not found: {action['selector']}\033[0m")
+                    break
+                except Exception as e:
+                    print(f"  \033[91mError during action: {e}\033[0m")
+                    break
+
+        except Exception as e:
+            print(f"\033[91mAn error occurred setting up the test browser: {e}\033[0m")
+        finally:
+            print("--- Test Execution Finished ---")
+            if self.test_driver:
+                self.test_driver.quit()
+            self.record_button.setEnabled(True)
+            self.start_button.setEnabled(True)
 
     def closeEvent(self, event):
-        # ... (rest of the function is unchanged)
+        self.is_recording = False
+        if self.driver:
+            try:
+                self.driver.quit()
+            except WebDriverException:
+                pass
+        if self.test_driver:
+            try:
+                self.test_driver.quit()
+            except WebDriverException:
+                pass
+        event.accept()
 
 
 if __name__ == "__main__":
