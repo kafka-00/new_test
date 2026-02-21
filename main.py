@@ -17,13 +17,26 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QHeaderView,
     QFileDialog,
-    QAbstractItemView
+    QAbstractItemView,
+    QTextEdit,
+    QSplitter
 )
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import JavascriptException, WebDriverException, TimeoutException
+
+# --- Stream Redirection --- #
+class Stream(QObject):
+    """Redirects console output to a QTextEdit widget."""
+    new_text = Signal(str)
+
+    def write(self, text):
+        self.new_text.emit(str(text))
+
+    def flush(self):
+        pass # This is needed for the stream interface
 
 
 class RecordingSignals(QObject):
@@ -32,25 +45,18 @@ class RecordingSignals(QObject):
 
 
 class DeletableTableWidget(QTableWidget):
-    """A custom table widget that emits a signal when the correct delete key is pressed."""
     delete_triggered = Signal()
 
     def keyPressEvent(self, event: QKeyEvent):
-        """Reimplement to capture delete keys for different platforms."""
         is_delete_key = False
-
-        # Mac-specific 'Cmd+Backspace'
-        # Based on debug logs, Cmd on this Mac setup maps to ControlModifier.
         if sys.platform == 'darwin' and event.key() == Qt.Key.Key_Backspace and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
             is_delete_key = True
-        # Standard Delete key (covers Windows 'Del' and Mac 'fn+Backspace')
         elif event.key() == Qt.Key.Key_Delete:
             is_delete_key = True
 
         if is_delete_key:
             self.delete_triggered.emit()
         else:
-            # Handle all other key presses (like navigation, editing) normally
             super().keyPressEvent(event)
 
 
@@ -59,7 +65,7 @@ class TestAutomationTool(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("Test Automation Tool")
-        self.resize(800, 600)
+        self.resize(800, 700) # Increased height for the log window
         self.driver = None
         self.test_driver = None
         self.is_recording = False
@@ -100,7 +106,11 @@ class TestAutomationTool(QMainWindow):
 
         main_layout.addLayout(controls_layout)
 
-        # --- Steps Table (Using the custom widget) ---
+        # --- Main Content Area (Splitter) ---
+        splitter = QSplitter(Qt.Vertical)
+        main_layout.addWidget(splitter)
+
+        # --- Steps Table ---
         self.steps_table = DeletableTableWidget()
         self.steps_table.setColumnCount(4)
         self.steps_table.setHorizontalHeaderLabels(["Step", "Action", "Selector", "Value"])
@@ -110,7 +120,15 @@ class TestAutomationTool(QMainWindow):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         self.steps_table.setEditTriggers(QAbstractItemView.DoubleClicked)
-        main_layout.addWidget(self.steps_table)
+        splitter.addWidget(self.steps_table)
+
+        # --- Log Window ---
+        self.log_window = QTextEdit()
+        self.log_window.setReadOnly(True)
+        self.log_window.setFontFamily("Courier") # Monospaced font for better log readability
+        splitter.addWidget(self.log_window)
+
+        splitter.setSizes([400, 300]) # Initial size distribution
 
         # --- Connections ---
         save_url_button.clicked.connect(self.save_url)
@@ -124,6 +142,20 @@ class TestAutomationTool(QMainWindow):
 
         self.saved_url = ""
         self.recorded_actions = []
+
+        # --- Redirect stdout/stderr ---
+        self.log_stream = Stream()
+        self.log_stream.new_text.connect(self.append_log)
+        sys.stdout = self.log_stream
+        sys.stderr = self.log_stream
+
+        print("Application started. Logs will appear here.")
+
+    def append_log(self, text):
+        """Appends text to the log window and ensures it's visible."""
+        self.log_window.moveCursor(self.log_window.textCursor().End)
+        self.log_window.insertPlainText(text)
+        self.log_window.ensureCursorVisible()
 
     def save_url(self):
         url = self.url_input.text()
@@ -348,6 +380,7 @@ class TestAutomationTool(QMainWindow):
         self.steps_table.blockSignals(False)
 
     def closeEvent(self, event):
+        print("Closing application...")
         self.is_recording = False
         if self.driver:
             try:
@@ -359,6 +392,9 @@ class TestAutomationTool(QMainWindow):
                 self.test_driver.quit()
             except WebDriverException:
                 pass
+        # Restore stdout and stderr
+        sys.stdout = sys.__stdout__
+        sys.stderr = sys.__stderr__
         event.accept()
 
 
