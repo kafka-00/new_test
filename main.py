@@ -4,6 +4,7 @@ import json
 import threading
 import time
 from PySide6.QtCore import Signal, QObject
+from PySide6.QtGui import QShortcut, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -49,8 +50,6 @@ class TestAutomationTool(QMainWindow):
 
         # --- Controls Layout ---
         controls_layout = QVBoxLayout()
-
-        # URL Layout
         url_layout = QHBoxLayout()
         self.url_input = QLineEdit()
         self.url_input.setPlaceholderText("Enter URL and save before recording...")
@@ -59,20 +58,20 @@ class TestAutomationTool(QMainWindow):
         url_layout.addWidget(save_url_button)
         controls_layout.addLayout(url_layout)
 
-        # Main Buttons Layout
         buttons_layout = QHBoxLayout()
         self.record_button = QPushButton("Test Recording")
         self.start_button = QPushButton("Test Start")
         buttons_layout.addWidget(self.record_button)
         buttons_layout.addWidget(self.start_button)
         controls_layout.addLayout(buttons_layout)
-        
-        # File Operations Layout
+
         file_ops_layout = QHBoxLayout()
         self.save_button = QPushButton("Save Test")
         self.load_button = QPushButton("Load Test")
+        self.delete_button = QPushButton("Delete Step")
         file_ops_layout.addWidget(self.save_button)
         file_ops_layout.addWidget(self.load_button)
+        file_ops_layout.addWidget(self.delete_button)
         controls_layout.addLayout(file_ops_layout)
 
         main_layout.addLayout(controls_layout)
@@ -94,6 +93,11 @@ class TestAutomationTool(QMainWindow):
         self.start_button.clicked.connect(self.start_test)
         self.save_button.clicked.connect(self.save_test)
         self.load_button.clicked.connect(self.load_test)
+        self.delete_button.clicked.connect(self.delete_selected_steps)
+
+        # --- Shortcuts ---
+        delete_shortcut = QShortcut(QKeySequence.StandardKey.Delete, self.steps_table)
+        delete_shortcut.activated.connect(self.delete_selected_steps)
 
         self.saved_url = ""
         self.recorded_actions = []
@@ -155,7 +159,6 @@ class TestAutomationTool(QMainWindow):
     def add_action_to_table(self, action, is_loading=False):
         if not is_loading:
             self.recorded_actions.append(action)
-        print(f"Action recorded: {action}")
 
         row_position = self.steps_table.rowCount()
         self.steps_table.insertRow(row_position)
@@ -181,6 +184,23 @@ class TestAutomationTool(QMainWindow):
             print(f"\n--- Total Actions Recorded: {len(self.recorded_actions)} ---")
         else:
             print("No actions were recorded.")
+            
+    def delete_selected_steps(self):
+        selected_rows_indices = self.steps_table.selectionModel().selectedRows()
+        if not selected_rows_indices:
+            print("No step selected to delete.")
+            return
+
+        rows_to_delete = sorted(list(set(index.row() for index in selected_rows_indices)), reverse=True)
+
+        for row_index in rows_to_delete:
+            self.steps_table.removeRow(row_index)
+            self.recorded_actions.pop(row_index)
+        
+        for i in range(self.steps_table.rowCount()):
+            self.steps_table.setItem(i, 0, QTableWidgetItem(str(i + 1)))
+
+        print(f"Deleted {len(rows_to_delete)} step(s).")
 
     def start_test(self):
         if not self.recorded_actions:
@@ -276,6 +296,7 @@ class TestAutomationTool(QMainWindow):
                 
                 print("--- Loading Test Case ---")
                 for action in self.recorded_actions:
+                    # Note the is_loading=True flag to prevent duplication
                     self.add_action_to_table(action, is_loading=True)
                 print(f"Test case loaded from {file_path}")
 
