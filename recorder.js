@@ -2,6 +2,7 @@
 // This script is injected into the browser to record user actions.
 // It communicates back to the Python application by calling a callback function
 // provided by Selenium's `execute_async_script`.
+// The Python script will set `window.isAsserting` before executing this.
 
 const callback = arguments[0];
 
@@ -10,43 +11,64 @@ function getSelector(element) {
     if (!element || !element.tagName) {
         return '';
     }
-
-    // Start with the tag name
-    let selector = element.tagName.toLowerCase();
-
-    // Add ID if it exists
     if (element.id) {
-        selector += '#' + element.id;
-        // ID is unique, so we can stop here
-        return selector;
+        return `#${element.id}`;
     }
-
-    // Add classes if they exist
-    if (element.className) {
-        const classes = element.className.trim().split(/\s+/).join('.');
-        if (classes) {
-            selector += '.' + classes;
+    let path = [];
+    while (element.parentElement) {
+        let selector = element.tagName.toLowerCase();
+        const siblings = Array.from(element.parentElement.children);
+        const sameTagSiblings = siblings.filter(e => e.tagName === element.tagName);
+        if (sameTagSiblings.length > 1) {
+            const index = sameTagSiblings.indexOf(element);
+            selector += `:nth-of-type(${index + 1})`;
         }
+        path.unshift(selector);
+        element = element.parentElement;
+        // Stop at body or a unique enough parent
+        if (element.tagName.toLowerCase() === 'body') break;
     }
-
-    // To make it more robust, you could traverse up the DOM,
-    // but for now, this is a good starting point.
-    return selector;
+    return path.join(' > ');
 }
+
 
 // Listen for all click events on the page.
 document.addEventListener('click', function(event) {
     const selector = getSelector(event.target);
-    const action = {
-        type: 'click',
-        selector: selector
-    };
-    // Send the recorded action back to the Python script.
-    callback(action);
+    let action;
+
+    if (window.isAsserting) {
+        // Prevent default action (e.g., navigating to a new page) when in assertion mode.
+        event.preventDefault();
+        event.stopPropagation();
+        
+        const capturedText = event.target.innerText;
+        action = {
+            type: 'assert_text',
+            selector: selector,
+            value: capturedText
+        };
+        console.log(`Assertion captured: Element '${selector}' should have text '${capturedText}'`);
+        // Send the recorded action back to the Python script.
+        callback(action);
+
+    } else {
+        // Normal recording behavior
+        action = {
+            type: 'click',
+            selector: selector
+        };
+        // Send the recorded action back to the Python script.
+        callback(action);
+    }
 }, true); // Use 'capture' phase to ensure we get the event.
 
 // Listen for changes in input fields, textareas, and select dropdowns.
 document.addEventListener('change', function(event) {
+    // We don't want to record 'change' events in assertion mode.
+    if (window.isAsserting) {
+        return;
+    }
     const selector = getSelector(event.target);
     const action = {
         type: 'input',
@@ -57,4 +79,4 @@ document.addEventListener('change', function(event) {
     callback(action);
 }, true);
 
-console.log('Recorder script injected and listening for actions.');
+console.log('Recorder script injected. Assertion mode is:', window.isAsserting ? 'ON' : 'OFF');
