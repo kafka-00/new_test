@@ -109,10 +109,10 @@ class TestAutomationTool(QMainWindow):
         buttons_layout.addWidget(self.start_button)
         controls_layout.addLayout(buttons_layout)
 
-        # Assertion Checkbox - Changed from button to checkbox
+        # Assertion Checkbox - Now enabled by default
         self.assertion_checkbox = QCheckBox("Assertion Mode")
         self.assertion_checkbox.setObjectName("assertion_checkbox")
-        self.assertion_checkbox.setEnabled(False) # Disabled by default
+        self.assertion_checkbox.setEnabled(True) # Enabled by default
         controls_layout.addWidget(self.assertion_checkbox)
 
         file_ops_layout = QHBoxLayout()
@@ -171,7 +171,7 @@ class TestAutomationTool(QMainWindow):
         # --- Connections ---
         save_url_button.clicked.connect(self.save_url)
         self.record_button.clicked.connect(self.start_recording)
-        self.assertion_checkbox.toggled.connect(self.toggle_assertion_mode) # Connect checkbox
+        self.assertion_checkbox.toggled.connect(self.toggle_assertion_mode)
         self.start_button.clicked.connect(self.start_test)
         self.save_button.clicked.connect(self.save_test)
         self.delete_button.clicked.connect(self.delete_selected_steps)
@@ -204,9 +204,9 @@ class TestAutomationTool(QMainWindow):
     def toggle_assertion_mode(self, checked):
         self.is_asserting = checked
         if checked:
-            print("Assertion mode ENABLED. Click an element in the browser to add an assertion step.")
+            print("Assertion mode will be active on next recording.")
         else:
-            print("Assertion mode DISABLED.")
+            print("Assertion mode deactivated.")
 
     def start_recording(self):
         if not self.saved_url:
@@ -218,8 +218,10 @@ class TestAutomationTool(QMainWindow):
 
         print("Start recording... Please close the browser window to stop.")
         self.is_recording = True
+        # Disable controls during recording
         self.record_button.setEnabled(False)
         self.start_button.setEnabled(False)
+        self.assertion_checkbox.setEnabled(False)
         self.recorded_actions = []
         self.steps_table.setRowCount(0)
 
@@ -229,9 +231,6 @@ class TestAutomationTool(QMainWindow):
             self.driver = webdriver.Chrome(options=options)
             self.driver.get(self.saved_url)
             
-            # Enable assertion checkbox ONLY after driver is ready
-            self.assertion_checkbox.setEnabled(True)
-
             with open("recorder.js", "r") as f:
                 recorder_script = f.read()
 
@@ -244,17 +243,14 @@ class TestAutomationTool(QMainWindow):
             self.handle_recording_finished()
 
     def listen_for_actions(self, recorder_script):
+        # Pass the assertion state to the JS script
+        script_with_state = f"window.isAsserting = {str(self.is_asserting).lower()};\n{recorder_script}"
+
         while self.is_recording:
             try:
                 self.driver.current_url
-                action = self.driver.execute_async_script(recorder_script)
+                action = self.driver.execute_async_script(script_with_state)
                 if action:
-                    # In the future, the recorder_script will check `is_asserting` 
-                    # and return a different action type.
-                    if self.is_asserting:
-                        action['type'] = 'assert_text' # Example for now
-                        print(f"Assertion captured: {action}")
-
                     self.signals.action_recorded.emit(action)
             except WebDriverException:
                 self.is_recording = False
@@ -293,8 +289,9 @@ class TestAutomationTool(QMainWindow):
         # Reset UI to pre-recording state
         self.record_button.setEnabled(True)
         self.start_button.setEnabled(True)
-        self.assertion_checkbox.setEnabled(False)
-        self.assertion_checkbox.setChecked(False)
+        self.assertion_checkbox.setEnabled(True)
+        # We can leave the checkbox as is, or uncheck it.
+        # Let's leave it, so the user can do multiple assertion recordings if they wish.
 
         if self.recorded_actions:
             print(f"\n--- Total Actions Recorded: {len(self.recorded_actions)} ---")
@@ -360,8 +357,7 @@ class TestAutomationTool(QMainWindow):
                 print(f"Step {i}/{len(self.recorded_actions)}: {action_type} on '{action.get('selector', '')}'")
                 
                 if action_type.startswith('assert'):
-                    # For now, we just log that we would perform an assertion.
-                    # The actual logic will be implemented next.
+                    # The actual assertion logic will be implemented here later
                     print(f"  [Assertion Check] Action: {action_type}, Selector: {action.get('selector')}, Value: {action.get('value')}")
                     time.sleep(1) # Simulate checking time
                     continue
@@ -393,7 +389,7 @@ class TestAutomationTool(QMainWindow):
                 self.test_driver.quit()
             self.record_button.setEnabled(True)
             self.start_button.setEnabled(True)
-            self.assertion_checkbox.setEnabled(False)
+            self.assertion_checkbox.setEnabled(True)
             
     def save_test(self):
         if not self.recorded_actions:
