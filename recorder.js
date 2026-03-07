@@ -38,9 +38,8 @@ document.addEventListener('click', function(event) {
     let action;
 
     if (window.isAsserting) {
-        // Prevent default action (e.g., navigating to a new page) when in assertion mode.
-        event.preventDefault();
-        event.stopPropagation();
+        // DO NOT prevent default action. The user should be able to interact with the page
+        // normally, while also capturing an assertion.
         
         const capturedText = event.target.innerText;
         action = {
