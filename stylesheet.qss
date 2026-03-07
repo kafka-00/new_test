@@ -141,23 +141,43 @@ QPushButton:disabled {
     background-color: #127B12;
 }
 
-/* Assertion Button */
-#assertion_button {
-    background-color: #4a708B; /* Steel Blue */
+/* Checkbox Styling */
+QCheckBox {
+    spacing: 10px; /* Space between indicator and text */
     font-weight: bold;
 }
 
-#assertion_button:hover {
+QCheckBox::indicator {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+}
+
+QCheckBox::indicator:unchecked {
+    background-color: #4a4a4a;
+    border: 1px solid #5a5a5a;
+}
+
+QCheckBox::indicator:unchecked:hover {
+    background-color: #5a5a5a;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #4a708B; /* Steel Blue, same as the old button */
+    border: 1px solid #6a90ab;
+}
+
+QCheckBox::indicator:checked:hover {
     background-color: #5a809B;
 }
 
-#assertion_button:pressed {
-    background-color: #3a607B;
+QCheckBox:disabled {
+    color: #8a8a8a;
 }
 
-#assertion_button:checked {
-    background-color: #6a90ab; /* Lighter blue when active */
-    border: 1px solid #8ac0de;
+QCheckBox::indicator:disabled {
+    background-color: #3a3a3a;
+    border: 1px solid #4a4a4a;
 }
 
 /* Splitter */

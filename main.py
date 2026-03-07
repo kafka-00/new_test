@@ -23,7 +23,8 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QSplitter,
     QTreeView,
-    QFileSystemModel
+    QFileSystemModel,
+    QCheckBox
 )
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -70,7 +71,7 @@ class TestAutomationTool(QMainWindow):
         self.driver = None
         self.test_driver = None
         self.is_recording = False
-        self.is_asserting = False # New state for assertion mode
+        self.is_asserting = False # State for assertion mode
         self.signals = RecordingSignals()
         self.signals.finished.connect(self.handle_recording_finished)
         self.signals.action_recorded.connect(self.add_action_to_table)
@@ -102,19 +103,17 @@ class TestAutomationTool(QMainWindow):
         buttons_layout = QHBoxLayout()
         self.record_button = QPushButton("Start Recording")
         self.record_button.setObjectName("record_button")
-        
-        # New Assertion Button
-        self.assertion_button = QPushButton("Start Assertion")
-        self.assertion_button.setObjectName("assertion_button")
-        self.assertion_button.setCheckable(True) # Make it a toggle button
-        
         self.start_button = QPushButton("Test Run")
         self.start_button.setObjectName("start_button")
-        
         buttons_layout.addWidget(self.record_button)
-        buttons_layout.addWidget(self.assertion_button) # Add to layout
         buttons_layout.addWidget(self.start_button)
         controls_layout.addLayout(buttons_layout)
+
+        # Assertion Checkbox - Changed from button to checkbox
+        self.assertion_checkbox = QCheckBox("Assertion Mode")
+        self.assertion_checkbox.setObjectName("assertion_checkbox")
+        self.assertion_checkbox.setEnabled(False) # Disabled by default
+        controls_layout.addWidget(self.assertion_checkbox)
 
         file_ops_layout = QHBoxLayout()
         self.save_button = QPushButton("Save Test")
@@ -172,7 +171,7 @@ class TestAutomationTool(QMainWindow):
         # --- Connections ---
         save_url_button.clicked.connect(self.save_url)
         self.record_button.clicked.connect(self.start_recording)
-        self.assertion_button.clicked.connect(self.toggle_assertion_mode) # New connection
+        self.assertion_checkbox.toggled.connect(self.toggle_assertion_mode) # Connect checkbox
         self.start_button.clicked.connect(self.start_test)
         self.save_button.clicked.connect(self.save_test)
         self.delete_button.clicked.connect(self.delete_selected_steps)
@@ -204,31 +203,10 @@ class TestAutomationTool(QMainWindow):
 
     def toggle_assertion_mode(self, checked):
         self.is_asserting = checked
-        if self.is_asserting:
-            # Prevent enabling if browser is not open
-            if not self.driver or not self.driver.window_handles:
-                 print("Warning: Browser is not open. Please start a recording session first to open the browser.")
-                 # Automatically uncheck the button
-                 self.assertion_button.setChecked(False)
-                 self.is_asserting = False
-                 return
-
+        if checked:
             print("Assertion mode ENABLED. Click an element in the browser to add an assertion step.")
-            self.assertion_button.setText("Stop Assertion")
-            self.record_button.setEnabled(False)
-            self.start_button.setEnabled(False)
-            
         else:
             print("Assertion mode DISABLED.")
-            self.assertion_button.setText("Start Assertion")
-            # Only re-enable if not recording
-            if not self.is_recording:
-                self.record_button.setEnabled(True)
-                self.start_button.setEnabled(True)
-        
-        # This will refresh the stylesheet to apply/unapply the active state style
-        self.assertion_button.style().unpolish(self.assertion_button)
-        self.assertion_button.style().polish(self.assertion_button)
 
     def start_recording(self):
         if not self.saved_url:
@@ -242,7 +220,6 @@ class TestAutomationTool(QMainWindow):
         self.is_recording = True
         self.record_button.setEnabled(False)
         self.start_button.setEnabled(False)
-        self.assertion_button.setEnabled(False) # Disable assertion button during recording
         self.recorded_actions = []
         self.steps_table.setRowCount(0)
 
@@ -251,6 +228,9 @@ class TestAutomationTool(QMainWindow):
             options.browser_version = 'dev'
             self.driver = webdriver.Chrome(options=options)
             self.driver.get(self.saved_url)
+            
+            # Enable assertion checkbox ONLY after driver is ready
+            self.assertion_checkbox.setEnabled(True)
 
             with open("recorder.js", "r") as f:
                 recorder_script = f.read()
@@ -309,13 +289,12 @@ class TestAutomationTool(QMainWindow):
         print("...Recording finished.")
         self.is_recording = False
         self.driver = None
+        
+        # Reset UI to pre-recording state
         self.record_button.setEnabled(True)
         self.start_button.setEnabled(True)
-        self.assertion_button.setEnabled(True)
-        
-        # Ensure assertion mode is also turned off
-        if self.assertion_button.isChecked():
-            self.assertion_button.click() # This triggers the toggle function with "checked=False"
+        self.assertion_checkbox.setEnabled(False)
+        self.assertion_checkbox.setChecked(False)
 
         if self.recorded_actions:
             print(f"\n--- Total Actions Recorded: {len(self.recorded_actions)} ---")
@@ -367,7 +346,7 @@ class TestAutomationTool(QMainWindow):
         print("--- Starting Test Execution ---")
         self.record_button.setEnabled(False)
         self.start_button.setEnabled(False)
-        self.assertion_button.setEnabled(False)
+        self.assertion_checkbox.setEnabled(False)
 
         try:
             options = webdriver.ChromeOptions()
@@ -414,7 +393,7 @@ class TestAutomationTool(QMainWindow):
                 self.test_driver.quit()
             self.record_button.setEnabled(True)
             self.start_button.setEnabled(True)
-            self.assertion_button.setEnabled(True)
+            self.assertion_checkbox.setEnabled(False)
             
     def save_test(self):
         if not self.recorded_actions:
