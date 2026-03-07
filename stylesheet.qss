@@ -1,55 +1,103 @@
+/* General Styling */
 QWidget {
-    background-color: #2b2b2b;
+    background-color: #2e2e2e;
     color: #f0f0f0;
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
     font-size: 14px;
 }
 
+/* Main Window */
 QMainWindow {
-    background-color: #2b2b2b;
+    background-color: #1c1c1c;
 }
 
-QSplitter::handle {
-    background-color: #3c3f41;
-    height: 1px;
+/* Headers */
+QHeaderView::section {
+    background-color: #383838;
+    color: #f0f0f0;
+    padding: 4px;
+    border: 1px solid #2e2e2e;
+    font-weight: bold;
 }
 
-QSplitter::handle:hover {
-    background-color: #4f5254;
+/* Table Widget */
+QTableWidget {
+    gridline-color: #484848;
+    border: 1px solid #484848;
 }
 
-QSplitter::handle:pressed {
-    background-color: #007acc;
-}
-
-/* --- TreeView (File Explorer) --- */
-QTreeView {
-    background-color: #252526;
-    border: 1px solid #3c3f41;
-    border-radius: 4px;
-    color: #cccccc;
-    outline: 0; /* Remove focus outline */
-}
-
-QTreeView::item {
+QTableWidget::item {
     padding: 5px;
 }
 
-QTreeView::item:selected {
-    background-color: #3d3d3d;
+QTableWidget::item:selected {
+    background-color: #558055; /* A shade of green */
+    color: #f0f0f0;
 }
 
-QTreeView::item:hover {
-    background-color: #2a2d2e;
+/* Line Edits */
+QLineEdit {
+    background-color: #252525;
+    border: 1px solid #484848;
+    border-radius: 4px;
+    padding: 5px;
 }
 
-/* --- Buttons --- */
+QLineEdit:focus {
+    border: 1px solid #558055;
+}
+
+/* Text Edit (Logs) */
+#execution_log {
+    background-color: #252525;
+    border: 1px solid #484848;
+    border-radius: 4px;
+    font-family: 'Consolas', 'Menlo', 'Courier New', monospace;
+    font-size: 13px;
+}
+
+/* Scrollbars */
+QScrollBar:vertical {
+    border: 1px solid #484848;
+    background: #2e2e2e;
+    width: 15px;
+    margin: 15px 0 15px 0;
+}
+
+QScrollBar::handle:vertical {
+    background: #484848;
+    min-height: 20px;
+    border-radius: 7px;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QScrollBar:horizontal {
+    border: 1px solid #484848;
+    background: #2e2e2e;
+    height: 15px;
+    margin: 0px 15px 0 15px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #484848;
+    min-width: 20px;
+    border-radius: 7px;
+}
+
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    width: 0px;
+}
+
+/* Buttons */
 QPushButton {
     background-color: #4a4a4a;
     color: #f0f0f0;
-    border: none;
+    border: 1px solid #5a5a5a;
     border-radius: 4px;
-    padding: 8px 12px;
+    padding: 8px;
 }
 
 QPushButton:hover {
@@ -65,117 +113,77 @@ QPushButton:disabled {
     color: #8a8a8a;
 }
 
-/* --- Special Buttons --- */
-QPushButton#record_button {
-    background-color: #a05252; /* Darker Red */
-}
-QPushButton#record_button:hover {
-    background-color: #b06262;
-}
-QPushButton#record_button:disabled {
-    background-color: #5a3a3a;
-    color: #9a8a8a;
-}
-
-QPushButton#start_button {
-    background-color: #558055; /* Darker Green */
-}
-QPushButton#start_button:hover {
-    background-color: #659065;
-}
-
-/* --- LineEdit (URL Input) --- */
-QLineEdit {
-    background-color: #3c3f41;
-    border: 1px solid #3c3f41;
-    border-radius: 4px;
-    padding: 6px;
-    color: #f0f0f0;
-}
-
-QLineEdit:focus {
-    border: 1px solid #007acc;
-}
-
-/* --- TableWidget (Steps Table) --- */
-QTableWidget {
-    background-color: #252526;
-    gridline-color: #3c3f41;
-    color: #cccccc;
-    border: 1px solid #3c3f41;
-}
-
-QTableWidget::item {
-    border-color: #3c3f41;
-    padding: 5px;
-}
-
-QTableWidget::item:selected {
-    background-color: #007acc;
-    color: #ffffff;
-}
-
-QHeaderView::section {
-    background-color: #3c3f41;
-    color: #f0f0f0;
-    padding: 4px;
-    border: 1px solid #2b2b2b;
+/* Record Button */
+#record_button {
+    background-color: #B22222; /* Darker Red */
     font-weight: bold;
 }
 
-/* --- TextEdit (Log Window) --- */
-QTextEdit {
-    background-color: #1e1e1e;
-    border: 1px solid #3c3f41;
-    border-radius: 4px;
-    color: #dcdcdc;
-    font-family: "Consolas", "Courier New", monospace;
+#record_button:hover {
+    background-color: #C23232;
 }
 
-/* --- ScrollBars --- */
-QScrollBar:vertical {
-    border: none;
-    background: #2b2b2b;
-    width: 12px;
-    margin: 15px 0 15px 0;
-    border-radius: 0px;
+#record_button:pressed {
+    background-color: #A21212;
 }
 
-QScrollBar::handle:vertical {
-    background: #4f5254;
-    min-height: 20px;
-    border-radius: 5px;
-}
-QScrollBar::handle:vertical:hover {
-    background: #595d60;
-}
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-    height: 0px;
-}
-QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-    background: none;
+/* Test Run Button */
+#start_button {
+    background-color: #228B22; /* Darker Green */
+    font-weight: bold;
 }
 
-QScrollBar:horizontal {
-    border: none;
-    background: #2b2b2b;
-    height: 12px;
-    margin: 0 15px 0 15px;
-    border-radius: 0px;
+#start_button:hover {
+    background-color: #329B32;
 }
 
-QScrollBar::handle:horizontal {
-    background: #4f5254;
-    min-width: 20px;
-    border-radius: 5px;
-}
-QScrollBar::handle:horizontal:hover {
-    background: #595d60;
-}
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-    width: 0px;
+#start_button:pressed {
+    background-color: #127B12;
 }
 
-QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
-    background: none;
+/* Assertion Button */
+#assertion_button {
+    background-color: #4a708B; /* Steel Blue */
+    font-weight: bold;
+}
+
+#assertion_button:hover {
+    background-color: #5a809B;
+}
+
+#assertion_button:pressed {
+    background-color: #3a607B;
+}
+
+#assertion_button:checked {
+    background-color: #6a90ab; /* Lighter blue when active */
+    border: 1px solid #8ac0de;
+}
+
+/* Splitter */
+QSplitter::handle {
+    background-color: #383838;
+    border: 1px solid #2e2e2e;
+}
+
+QSplitter::handle:horizontal {
+    width: 5px;
+}
+
+QSplitter::handle:vertical {
+    height: 5px;
+}
+
+/* Tree View (File Explorer) */
+QTreeView {
+    background-color: #2e2e2e;
+    border: 1px solid #484848;
+}
+
+QTreeView::item {
+    padding: 4px;
+}
+
+QTreeView::item:selected {
+    background-color: #558055; /* A shade of green */
 }

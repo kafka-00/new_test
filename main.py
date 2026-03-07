@@ -70,14 +70,12 @@ class TestAutomationTool(QMainWindow):
         self.driver = None
         self.test_driver = None
         self.is_recording = False
+        self.is_asserting = False # New state for assertion mode
         self.signals = RecordingSignals()
         self.signals.finished.connect(self.handle_recording_finished)
         self.signals.action_recorded.connect(self.add_action_to_table)
 
-        # --- Main Layout ---
-        # The main layout is a vertical splitter.
-        # Top: A horizontal splitter containing settings (left) and the steps table (right).
-        # Bottom: The log window.
+        # --- Main Layout -- #
         main_splitter = QSplitter(Qt.Vertical)
         self.setCentralWidget(main_splitter)
 
@@ -87,7 +85,7 @@ class TestAutomationTool(QMainWindow):
         # --- Left Panel (Settings) ---
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(0, 0, 0, 0) # Remove padding
+        left_layout.setContentsMargins(0, 0, 0, 0)
 
         # Controls (URL, Buttons)
         controls_container = QWidget()
@@ -104,9 +102,17 @@ class TestAutomationTool(QMainWindow):
         buttons_layout = QHBoxLayout()
         self.record_button = QPushButton("Start Recording")
         self.record_button.setObjectName("record_button")
+        
+        # New Assertion Button
+        self.assertion_button = QPushButton("Start Assertion")
+        self.assertion_button.setObjectName("assertion_button")
+        self.assertion_button.setCheckable(True) # Make it a toggle button
+        
         self.start_button = QPushButton("Test Run")
         self.start_button.setObjectName("start_button")
+        
         buttons_layout.addWidget(self.record_button)
+        buttons_layout.addWidget(self.assertion_button) # Add to layout
         buttons_layout.addWidget(self.start_button)
         controls_layout.addLayout(buttons_layout)
 
@@ -166,6 +172,7 @@ class TestAutomationTool(QMainWindow):
         # --- Connections ---
         save_url_button.clicked.connect(self.save_url)
         self.record_button.clicked.connect(self.start_recording)
+        self.assertion_button.clicked.connect(self.toggle_assertion_mode) # New connection
         self.start_button.clicked.connect(self.start_test)
         self.save_button.clicked.connect(self.save_test)
         self.delete_button.clicked.connect(self.delete_selected_steps)
@@ -195,6 +202,34 @@ class TestAutomationTool(QMainWindow):
         self.url_input.setText(self.saved_url)
         print(f"URL saved: {self.saved_url}")
 
+    def toggle_assertion_mode(self, checked):
+        self.is_asserting = checked
+        if self.is_asserting:
+            # Prevent enabling if browser is not open
+            if not self.driver or not self.driver.window_handles:
+                 print("Warning: Browser is not open. Please start a recording session first to open the browser.")
+                 # Automatically uncheck the button
+                 self.assertion_button.setChecked(False)
+                 self.is_asserting = False
+                 return
+
+            print("Assertion mode ENABLED. Click an element in the browser to add an assertion step.")
+            self.assertion_button.setText("Stop Assertion")
+            self.record_button.setEnabled(False)
+            self.start_button.setEnabled(False)
+            
+        else:
+            print("Assertion mode DISABLED.")
+            self.assertion_button.setText("Start Assertion")
+            # Only re-enable if not recording
+            if not self.is_recording:
+                self.record_button.setEnabled(True)
+                self.start_button.setEnabled(True)
+        
+        # This will refresh the stylesheet to apply/unapply the active state style
+        self.assertion_button.style().unpolish(self.assertion_button)
+        self.assertion_button.style().polish(self.assertion_button)
+
     def start_recording(self):
         if not self.saved_url:
             print("Please enter and save a URL first.")
@@ -207,6 +242,7 @@ class TestAutomationTool(QMainWindow):
         self.is_recording = True
         self.record_button.setEnabled(False)
         self.start_button.setEnabled(False)
+        self.assertion_button.setEnabled(False) # Disable assertion button during recording
         self.recorded_actions = []
         self.steps_table.setRowCount(0)
 
@@ -224,7 +260,8 @@ class TestAutomationTool(QMainWindow):
             self.recording_thread.start()
 
         except Exception as e:
-            raise e
+            print(f"Error starting browser: {e}")
+            self.handle_recording_finished()
 
     def listen_for_actions(self, recorder_script):
         while self.is_recording:
@@ -232,6 +269,12 @@ class TestAutomationTool(QMainWindow):
                 self.driver.current_url
                 action = self.driver.execute_async_script(recorder_script)
                 if action:
+                    # In the future, the recorder_script will check `is_asserting` 
+                    # and return a different action type.
+                    if self.is_asserting:
+                        action['type'] = 'assert_text' # Example for now
+                        print(f"Assertion captured: {action}")
+
                     self.signals.action_recorded.emit(action)
             except WebDriverException:
                 self.is_recording = False
@@ -268,6 +311,11 @@ class TestAutomationTool(QMainWindow):
         self.driver = None
         self.record_button.setEnabled(True)
         self.start_button.setEnabled(True)
+        self.assertion_button.setEnabled(True)
+        
+        # Ensure assertion mode is also turned off
+        if self.assertion_button.isChecked():
+            self.assertion_button.click() # This triggers the toggle function with "checked=False"
 
         if self.recorded_actions:
             print(f"\n--- Total Actions Recorded: {len(self.recorded_actions)} ---")
@@ -319,6 +367,7 @@ class TestAutomationTool(QMainWindow):
         print("--- Starting Test Execution ---")
         self.record_button.setEnabled(False)
         self.start_button.setEnabled(False)
+        self.assertion_button.setEnabled(False)
 
         try:
             options = webdriver.ChromeOptions()
@@ -328,7 +377,16 @@ class TestAutomationTool(QMainWindow):
             wait = WebDriverWait(self.test_driver, 10)
 
             for i, action in enumerate(self.recorded_actions, 1):
-                print(f"Step {i}/{len(self.recorded_actions)}: {action['type']} on '{action['selector']}'")
+                action_type = action.get('type', '')
+                print(f"Step {i}/{len(self.recorded_actions)}: {action_type} on '{action.get('selector', '')}'")
+                
+                if action_type.startswith('assert'):
+                    # For now, we just log that we would perform an assertion.
+                    # The actual logic will be implemented next.
+                    print(f"  [Assertion Check] Action: {action_type}, Selector: {action.get('selector')}, Value: {action.get('value')}")
+                    time.sleep(1) # Simulate checking time
+                    continue
+
                 try:
                     selector = action['selector']
                     element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
@@ -349,13 +407,14 @@ class TestAutomationTool(QMainWindow):
                     break
 
         except Exception as e:
-            raise e
+            print(f"An error occurred during test setup: {e}")
         finally:
             print("--- Test Execution Finished ---")
             if self.test_driver:
                 self.test_driver.quit()
             self.record_button.setEnabled(True)
             self.start_button.setEnabled(True)
+            self.assertion_button.setEnabled(True)
             
     def save_test(self):
         if not self.recorded_actions:
@@ -382,7 +441,7 @@ class TestAutomationTool(QMainWindow):
                     json.dump(test_case, f, indent=4)
                 print(f"Test case saved to {os.path.basename(file_path)}")
             except Exception as e:
-                raise e
+                print(f"Error saving file: {e}")
 
     def load_test_from_explorer(self, index):
         file_path = self.file_model.filePath(index)
@@ -407,8 +466,7 @@ class TestAutomationTool(QMainWindow):
             print(f"Test case loaded successfully.")
 
         except Exception as e:
-            self.steps_table.blockSignals(False)
-            raise e
+            print(f"Error loading test case: {e}")
         finally:
             self.steps_table.blockSignals(False)
 
@@ -427,7 +485,6 @@ class TestAutomationTool(QMainWindow):
                 pass
         
         sys.stdout = sys.__stdout__
-        sys.excepthook = sys.__excepthook__
         event.accept()
 
 
