@@ -85,9 +85,9 @@ class Launcher(QWidget):
             self.launch_button.setText("Launching...")
             QApplication.processEvents()
             
-            # Step 2: Launch main application
-            self.log_output.append("\n> Launching main application...")
-            subprocess.Popen(["python3", "main.py"])
+            # Step 2: Launch main application using the same python executable
+            self.log_output.append(f"\n> Launching main application with {sys.executable}...")
+            subprocess.Popen([sys.executable, "main.py"]) # Use sys.executable
             
             # Close the launcher after a delay
             self.log_output.append("\nApplication started. This launcher will close automatically.")
