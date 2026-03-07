@@ -65,8 +65,8 @@ class TestAutomationTool(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("QUATY Automation Tool") # Changed title
-        self.resize(1200, 800) # Increased size
+        self.setWindowTitle("QUATY Automation Tool")
+        self.resize(1200, 800)
         self.driver = None
         self.test_driver = None
         self.is_recording = False
@@ -74,32 +74,25 @@ class TestAutomationTool(QMainWindow):
         self.signals.finished.connect(self.handle_recording_finished)
         self.signals.action_recorded.connect(self.add_action_to_table)
 
-        main_splitter = QSplitter(Qt.Horizontal)
+        # --- Main Layout ---
+        # The main layout is a vertical splitter.
+        # Top: A horizontal splitter containing settings (left) and the steps table (right).
+        # Bottom: The log window.
+        main_splitter = QSplitter(Qt.Vertical)
         self.setCentralWidget(main_splitter)
 
-        self.test_cases_dir = os.path.join(os.getcwd(), "test_cases")
-        if not os.path.exists(self.test_cases_dir):
-            os.makedirs(self.test_cases_dir)
+        # --- Top Half (Settings and Steps) ---
+        top_splitter = QSplitter(Qt.Horizontal)
 
-        self.file_model = QFileSystemModel()
-        self.file_model.setRootPath(self.test_cases_dir)
-        self.file_model.setFilter(QDir.NoDotAndDotDot | QDir.Files)
-        self.file_model.setNameFilters(["*.json"])
-        self.file_model.setNameFilterDisables(False)
+        # --- Left Panel (Settings) ---
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(0, 0, 0, 0) # Remove padding
 
-        self.file_explorer = QTreeView()
-        self.file_explorer.setModel(self.file_model)
-        self.file_explorer.setRootIndex(self.file_model.index(self.test_cases_dir))
-        self.file_explorer.setHeaderHidden(True)
-        for i in range(1, self.file_model.columnCount()):
-            self.file_explorer.hideColumn(i)
-        main_splitter.addWidget(self.file_explorer)
+        # Controls (URL, Buttons)
+        controls_container = QWidget()
+        controls_layout = QVBoxLayout(controls_container)
 
-        right_panel = QWidget()
-        right_layout = QVBoxLayout(right_panel)
-        main_splitter.addWidget(right_panel)
-
-        controls_layout = QVBoxLayout()
         url_layout = QHBoxLayout()
         self.url_input = QLineEdit()
         self.url_input.setPlaceholderText("Enter URL and save before recording...")
@@ -110,9 +103,9 @@ class TestAutomationTool(QMainWindow):
 
         buttons_layout = QHBoxLayout()
         self.record_button = QPushButton("Start Recording")
-        self.record_button.setObjectName("record_button") # Set object name for styling
+        self.record_button.setObjectName("record_button")
         self.start_button = QPushButton("Test Run")
-        self.start_button.setObjectName("start_button") # Set object name for styling
+        self.start_button.setObjectName("start_button")
         buttons_layout.addWidget(self.record_button)
         buttons_layout.addWidget(self.start_button)
         controls_layout.addLayout(buttons_layout)
@@ -123,11 +116,28 @@ class TestAutomationTool(QMainWindow):
         file_ops_layout.addWidget(self.save_button)
         file_ops_layout.addWidget(self.delete_button)
         controls_layout.addLayout(file_ops_layout)
-        right_layout.addLayout(controls_layout)
+        
+        # File Explorer
+        self.test_cases_dir = os.path.join(os.getcwd(), "test_cases")
+        if not os.path.exists(self.test_cases_dir):
+            os.makedirs(self.test_cases_dir)
+        self.file_model = QFileSystemModel()
+        self.file_model.setRootPath(self.test_cases_dir)
+        self.file_model.setFilter(QDir.NoDotAndDotDot | QDir.Files)
+        self.file_model.setNameFilters(["*.json"])
+        self.file_model.setNameFilterDisables(False)
+        self.file_explorer = QTreeView()
+        self.file_explorer.setModel(self.file_model)
+        self.file_explorer.setRootIndex(self.file_model.index(self.test_cases_dir))
+        self.file_explorer.setHeaderHidden(True)
+        for i in range(1, self.file_model.columnCount()):
+            self.file_explorer.hideColumn(i)
 
-        content_splitter = QSplitter(Qt.Vertical)
-        right_layout.addWidget(content_splitter)
-
+        # Add controls and file explorer to left panel
+        left_layout.addWidget(controls_container)
+        left_layout.addWidget(self.file_explorer)
+        
+        # --- Center Panel (Steps Table) ---
         self.steps_table = DeletableTableWidget()
         self.steps_table.setColumnCount(4)
         self.steps_table.setHorizontalHeaderLabels(["Step", "Action", "Selector", "Value"])
@@ -137,16 +147,23 @@ class TestAutomationTool(QMainWindow):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         self.steps_table.setEditTriggers(QAbstractItemView.DoubleClicked)
-        content_splitter.addWidget(self.steps_table)
 
+        # Add left panel and steps table to the top splitter
+        top_splitter.addWidget(left_panel)
+        top_splitter.addWidget(self.steps_table)
+        top_splitter.setSizes([350, 850]) # Adjust initial size
+
+        # --- Bottom Half (Log Window) ---
         self.log_window = QTextEdit()
         self.log_window.setReadOnly(True)
         self.log_window.setObjectName("execution_log")
-        content_splitter.addWidget(self.log_window)
-        content_splitter.setSizes([500, 300])
 
-        main_splitter.setSizes([250, 950])
+        # Add top splitter and log window to the main splitter
+        main_splitter.addWidget(top_splitter)
+        main_splitter.addWidget(self.log_window)
+        main_splitter.setSizes([600, 200]) # Main split: 3/4 top, 1/4 bottom
 
+        # --- Connections ---
         save_url_button.clicked.connect(self.save_url)
         self.record_button.clicked.connect(self.start_recording)
         self.start_button.clicked.connect(self.start_test)

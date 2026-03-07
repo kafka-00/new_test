@@ -67,10 +67,10 @@ QPushButton:disabled {
 
 /* --- Special Buttons --- */
 QPushButton#record_button {
-    background-color: #af3535; /* Darker Red */
+    background-color: #a05252; /* Darker Red */
 }
 QPushButton#record_button:hover {
-    background-color: #c04545;
+    background-color: #b06262;
 }
 QPushButton#record_button:disabled {
     background-color: #5a3a3a;
@@ -78,10 +78,10 @@ QPushButton#record_button:disabled {
 }
 
 QPushButton#start_button {
-    background-color: #428745; /* Darker Green */
+    background-color: #558055; /* Darker Green */
 }
 QPushButton#start_button:hover {
-    background-color: #529755;
+    background-color: #659065;
 }
 
 /* --- LineEdit (URL Input) --- */
