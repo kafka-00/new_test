@@ -428,27 +428,36 @@ class TestAutomationTool(QMainWindow):
 
             for i, action in enumerate(self.recorded_actions, 1):
                 action_type = action.get('type', '')
-                print(f"Step {i}/{len(self.recorded_actions)}: {action_type} on '{action.get('selector', '')}'")
+                selector = action.get('selector', '')
+                value = action.get('value', '')
                 
-                if action_type.startswith('assert'):
-                    print(f"  [Assertion Check] Action: {action_type}, Selector: {action.get('selector')}, Value: {action.get('value')}")
-                    time.sleep(1)
-                    continue
+                print(f"Step {i}/{len(self.recorded_actions)}: {action_type} on '{selector}'")
 
                 try:
-                    selector = action['selector']
+                    if action_type == 'assert_text':
+                        element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
+                        actual_text = element.text
+                        if actual_text == value:
+                            print(f"  [Assertion Passed] Expected text '{value}' found.")
+                        else:
+                            print(f"  [Assertion Failed] Expected '{value}', but found '{actual_text}'.")
+                            test_succeeded = False
+                            break
+                        continue
+
+                    # All other action types require a located element first
                     element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
 
-                    if action['type'] == 'click':
+                    if action_type == 'click':
                         element.click()
-                    elif action['type'] == 'input':
+                    elif action_type == 'input':
                         element.clear()
-                        element.send_keys(action['value'])
+                        element.send_keys(value)
 
                     time.sleep(1)
 
                 except TimeoutException:
-                    print(f"  Error: Element not found: {action['selector']}")
+                    print(f"  Error: Element not found: {selector}")
                     test_succeeded = False
                     break
                 except Exception as e:
