@@ -24,7 +24,8 @@ from PySide6.QtWidgets import (
     QSplitter,
     QTreeView,
     QFileSystemModel,
-    QCheckBox
+    QCheckBox,
+    QLabel
 )
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options as ChromeOptions
@@ -115,6 +116,14 @@ class TestAutomationTool(QMainWindow):
         checkboxes_layout.addWidget(self.assertion_checkbox)
         checkboxes_layout.addWidget(self.headless_checkbox)
         controls_layout.addLayout(checkboxes_layout)
+        
+        status_layout = QHBoxLayout()
+        self.status_label = QLabel("Status: Not Yet Run")
+        self.status_label.setObjectName("status_label")
+        status_layout.addStretch()
+        status_layout.addWidget(self.status_label)
+        status_layout.addStretch()
+        controls_layout.addLayout(status_layout)
 
         file_ops_layout = QHBoxLayout()
         self.save_button = QPushButton("Save Test")
@@ -211,6 +220,22 @@ class TestAutomationTool(QMainWindow):
         self.log_window.insertPlainText(text)
         self.log_window.ensureCursorVisible()
 
+    def _set_status(self, status):
+        if status == "success":
+            self.status_label.setText("Status: Success")
+            self.status_label.setStyleSheet("color: green; font-weight: bold;")
+            print("--- Test Execution Succeeded ---")
+        elif status == "failed":
+            self.status_label.setText("Status: Failed")
+            self.status_label.setStyleSheet("color: red; font-weight: bold;")
+            print("--- Test Execution Failed ---")
+        elif status == "running":
+            self.status_label.setText("Status: Running...")
+            self.status_label.setStyleSheet("") # Reset style
+        else: # reset
+            self.status_label.setText("Status: Not Yet Run")
+            self.status_label.setStyleSheet("")
+
     def save_url(self):
         url = self.url_input.text()
         if not url.startswith("https://") and not url.startswith("http://"):
@@ -234,6 +259,7 @@ class TestAutomationTool(QMainWindow):
             print("Recording is already in progress.")
             return
 
+        self._set_status("reset")
         print("Start recording... Please close the browser window to stop.")
         self.is_recording = True
         self.record_button.setEnabled(False)
@@ -379,14 +405,17 @@ class TestAutomationTool(QMainWindow):
             print("URL not set. Please save a URL before starting a test.")
             return
 
+        self._set_status("running")
         print("--- Starting Test Execution ---")
         if self.headless_checkbox.isChecked():
             print("Running in HEADLESS mode.")
+            
         self.record_button.setEnabled(False)
         self.start_button.setEnabled(False)
         self.assertion_checkbox.setEnabled(False)
         self.headless_checkbox.setEnabled(False)
 
+        test_succeeded = True
         try:
             options = ChromeOptions()
             if self.headless_checkbox.isChecked():
@@ -420,17 +449,25 @@ class TestAutomationTool(QMainWindow):
 
                 except TimeoutException:
                     print(f"  Error: Element not found: {action['selector']}")
+                    test_succeeded = False
                     break
                 except Exception as e:
                     print(f"  Error during action: {e}")
+                    test_succeeded = False
                     break
 
         except Exception as e:
             print(f"An error occurred during test setup: {e}")
+            test_succeeded = False
         finally:
-            print("--- Test Execution Finished ---")
             if self.test_driver:
                 self.test_driver.quit()
+
+            if test_succeeded:
+                self._set_status("success")
+            else:
+                self._set_status("failed")
+
             self.record_button.setEnabled(True)
             self.start_button.setEnabled(True)
             self.assertion_checkbox.setEnabled(True)
@@ -467,7 +504,8 @@ class TestAutomationTool(QMainWindow):
         file_path = self.file_model.filePath(index)
         if not file_path or not os.path.isfile(file_path):
             return
-
+            
+        self._set_status("reset")
         print(f"--- Loading Test Case from {os.path.basename(file_path)} ---")
         self.steps_table.blockSignals(True)
         self.steps_table.setRowCount(0)
