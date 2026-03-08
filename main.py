@@ -317,7 +317,6 @@ class TestAutomationTool(QMainWindow):
         value = QTableWidgetItem(action.get("value", ""))
 
         step_num.setFlags(step_num.flags() & ~Qt.ItemIsEditable)
-        action_type.setFlags(action_type.flags() & ~Qt.ItemIsEditable)
 
         self.steps_table.setItem(row_position, 0, step_num)
         self.steps_table.setItem(row_position, 1, action_type)
