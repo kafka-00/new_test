@@ -117,8 +117,10 @@ class TestAutomationTool(QMainWindow):
 
         file_ops_layout = QHBoxLayout()
         self.save_button = QPushButton("Save Test")
+        self.add_step_button = QPushButton("+ Step")
         self.delete_button = QPushButton("Delete Step")
         file_ops_layout.addWidget(self.save_button)
+        file_ops_layout.addWidget(self.add_step_button)
         file_ops_layout.addWidget(self.delete_button)
         controls_layout.addLayout(file_ops_layout)
         
@@ -174,6 +176,7 @@ class TestAutomationTool(QMainWindow):
         self.assertion_checkbox.toggled.connect(self.toggle_assertion_mode)
         self.start_button.clicked.connect(self.start_test)
         self.save_button.clicked.connect(self.save_test)
+        self.add_step_button.clicked.connect(self.add_manual_step)
         self.delete_button.clicked.connect(self.delete_selected_steps)
         self.steps_table.cellChanged.connect(self.update_step_data)
         self.steps_table.delete_triggered.connect(self.delete_selected_steps)
@@ -281,6 +284,32 @@ class TestAutomationTool(QMainWindow):
         self.steps_table.setItem(row_position, 3, value)
         self.steps_table.blockSignals(False)
 
+    def add_manual_step(self):
+        """Adds a new, empty, editable step to the end of the steps table."""
+        self.steps_table.blockSignals(True)
+
+        new_action = {"type": "", "selector": "", "value": ""}
+        self.recorded_actions.append(new_action)
+
+        row_position = self.steps_table.rowCount()
+        self.steps_table.insertRow(row_position)
+
+        step_num = QTableWidgetItem(str(row_position + 1))
+        step_num.setFlags(step_num.flags() & ~Qt.ItemIsEditable)
+
+        # The new cells are editable by default
+        action_type = QTableWidgetItem("")
+        selector = QTableWidgetItem("")
+        value = QTableWidgetItem("")
+
+        self.steps_table.setItem(row_position, 0, step_num)
+        self.steps_table.setItem(row_position, 1, action_type)
+        self.steps_table.setItem(row_position, 2, selector)
+        self.steps_table.setItem(row_position, 3, value)
+        
+        self.steps_table.blockSignals(False)
+        print("Added a new empty step. Double-click cells to edit.")
+
     def handle_recording_finished(self):
         print("...Recording finished.")
         self.is_recording = False
@@ -324,11 +353,11 @@ class TestAutomationTool(QMainWindow):
             return
 
         new_value = self.steps_table.item(row, column).text()
-        key_map = {2: "selector", 3: "value"}
+        key_map = {1: "type", 2: "selector", 3: "value"}
 
         if column in key_map:
             key_to_update = key_map[column]
-            if self.recorded_actions[row][key_to_update] != new_value:
+            if self.recorded_actions[row].get(key_to_update) != new_value:
                 self.recorded_actions[row][key_to_update] = new_value
                 print(f"Updated Step {row + 1}: Set '{key_to_update}' to '{new_value}'")
 
