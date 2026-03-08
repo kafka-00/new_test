@@ -80,18 +80,14 @@ class TestAutomationTool(QMainWindow):
         main_splitter = QSplitter(Qt.Vertical)
         self.setCentralWidget(main_splitter)
 
-        # --- Top Half (Settings and Steps) ---
+        # --- Top Half (File Explorer and Main Content) ---
         top_splitter = QSplitter(Qt.Horizontal)
 
-        # --- Left Panel (Settings) ---
-        left_panel = QWidget()
-        left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(0, 0, 0, 0)
+        # --- Create Widgets First ---
 
         # Controls (URL, Buttons)
         controls_container = QWidget()
         controls_layout = QVBoxLayout(controls_container)
-
         url_layout = QHBoxLayout()
         self.url_input = QLineEdit()
         self.url_input.setPlaceholderText("Enter URL and save before recording...")
@@ -109,10 +105,9 @@ class TestAutomationTool(QMainWindow):
         buttons_layout.addWidget(self.start_button)
         controls_layout.addLayout(buttons_layout)
 
-        # Assertion Checkbox - Now enabled by default
         self.assertion_checkbox = QCheckBox("Assertion Mode")
         self.assertion_checkbox.setObjectName("assertion_checkbox")
-        self.assertion_checkbox.setEnabled(True) # Enabled by default
+        self.assertion_checkbox.setEnabled(True)
         controls_layout.addWidget(self.assertion_checkbox)
 
         file_ops_layout = QHBoxLayout()
@@ -123,8 +118,8 @@ class TestAutomationTool(QMainWindow):
         file_ops_layout.addWidget(self.add_step_button)
         file_ops_layout.addWidget(self.delete_button)
         controls_layout.addLayout(file_ops_layout)
-        
-        # File Explorer
+
+        # File Explorer (for the Left Panel)
         self.test_cases_dir = os.path.join(os.getcwd(), "test_cases")
         if not os.path.exists(self.test_cases_dir):
             os.makedirs(self.test_cases_dir)
@@ -140,11 +135,7 @@ class TestAutomationTool(QMainWindow):
         for i in range(1, self.file_model.columnCount()):
             self.file_explorer.hideColumn(i)
 
-        # Add controls and file explorer to left panel
-        left_layout.addWidget(controls_container)
-        left_layout.addWidget(self.file_explorer)
-        
-        # --- Center Panel (Steps Table) ---
+        # Steps Table (for the Center Panel)
         self.steps_table = DeletableTableWidget()
         self.steps_table.setColumnCount(4)
         self.steps_table.setHorizontalHeaderLabels(["Step", "Action", "Selector", "Value"])
@@ -156,12 +147,27 @@ class TestAutomationTool(QMainWindow):
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         self.steps_table.setEditTriggers(QAbstractItemView.DoubleClicked)
 
-        # Add left panel and steps table to the top splitter
-        top_splitter.addWidget(left_panel)
-        top_splitter.addWidget(self.steps_table)
-        top_splitter.setSizes([350, 850]) # Adjust initial size
+        # --- Assemble Layout ---
 
-        # --- Bottom Half (Log Window) ---
+        # Left Panel (File Explorer Only)
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.addWidget(self.file_explorer)
+
+        # Center Panel (Controls + Steps Table)
+        center_panel = QWidget()
+        center_layout = QVBoxLayout(center_panel)
+        center_layout.setContentsMargins(0, 0, 0, 0)
+        center_layout.addWidget(controls_container)
+        center_layout.addWidget(self.steps_table)
+
+        # Add left and center panels to the top splitter
+        top_splitter.addWidget(left_panel)
+        top_splitter.addWidget(center_panel)
+        top_splitter.setSizes([250, 950]) # Adjusted for a smaller file explorer view
+
+        # Bottom Half (Log Window)
         self.log_window = QTextEdit()
         self.log_window.setReadOnly(True)
         self.log_window.setObjectName("execution_log")
@@ -169,7 +175,7 @@ class TestAutomationTool(QMainWindow):
         # Add top splitter and log window to the main splitter
         main_splitter.addWidget(top_splitter)
         main_splitter.addWidget(self.log_window)
-        main_splitter.setSizes([600, 200]) # Main split: 3/4 top, 1/4 bottom
+        main_splitter.setSizes([600, 200])
 
         # --- Connections ---
         save_url_button.clicked.connect(self.save_url)
@@ -183,9 +189,11 @@ class TestAutomationTool(QMainWindow):
         self.steps_table.delete_triggered.connect(self.delete_selected_steps)
         self.file_explorer.clicked.connect(self.load_test_from_explorer)
 
+        # --- Instance Variables ---
         self.saved_url = ""
         self.recorded_actions = []
 
+        # Redirect stdout
         self.log_stream = Stream()
         self.log_stream.new_text.connect(self.append_log)
         sys.stdout = self.log_stream
@@ -222,7 +230,6 @@ class TestAutomationTool(QMainWindow):
 
         print("Start recording... Please close the browser window to stop.")
         self.is_recording = True
-        # Disable controls during recording
         self.record_button.setEnabled(False)
         self.start_button.setEnabled(False)
         self.assertion_checkbox.setEnabled(False)
@@ -247,7 +254,6 @@ class TestAutomationTool(QMainWindow):
             self.handle_recording_finished()
 
     def listen_for_actions(self, recorder_script):
-        # Pass the assertion state to the JS script
         script_with_state = f"window.isAsserting = {str(self.is_asserting).lower()};\n{recorder_script}"
 
         while self.is_recording:
@@ -286,9 +292,7 @@ class TestAutomationTool(QMainWindow):
         self.steps_table.blockSignals(False)
 
     def add_manual_step(self):
-        """Adds a new, empty, editable step to the end of the steps table."""
         self.steps_table.blockSignals(True)
-
         new_action = {"type": "", "selector": "", "value": ""}
         self.recorded_actions.append(new_action)
 
@@ -298,7 +302,6 @@ class TestAutomationTool(QMainWindow):
         step_num = QTableWidgetItem(str(row_position + 1))
         step_num.setFlags(step_num.flags() & ~Qt.ItemIsEditable)
 
-        # The new cells are editable by default
         action_type = QTableWidgetItem("")
         selector = QTableWidgetItem("")
         value = QTableWidgetItem("")
@@ -316,12 +319,9 @@ class TestAutomationTool(QMainWindow):
         self.is_recording = False
         self.driver = None
         
-        # Reset UI to pre-recording state
         self.record_button.setEnabled(True)
         self.start_button.setEnabled(True)
         self.assertion_checkbox.setEnabled(True)
-        # We can leave the checkbox as is, or uncheck it.
-        # Let's leave it, so the user can do multiple assertion recordings if they wish.
 
         if self.recorded_actions:
             print(f"\n--- Total Actions Recorded: {len(self.recorded_actions)} ---")
@@ -387,9 +387,8 @@ class TestAutomationTool(QMainWindow):
                 print(f"Step {i}/{len(self.recorded_actions)}: {action_type} on '{action.get('selector', '')}'")
                 
                 if action_type.startswith('assert'):
-                    # The actual assertion logic will be implemented here later
                     print(f"  [Assertion Check] Action: {action_type}, Selector: {action.get('selector')}, Value: {action.get('value')}")
-                    time.sleep(1) # Simulate checking time
+                    time.sleep(1)
                     continue
 
                 try:
@@ -496,7 +495,6 @@ class TestAutomationTool(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
-    # Load and apply stylesheet
     try:
         with open("stylesheet.qss", "r") as f:
             stylesheet = f.read()
@@ -506,7 +504,6 @@ if __name__ == "__main__":
 
     window = TestAutomationTool()
 
-    # --- Custom Exception Hook --- #
     def handle_exception(exc_type, exc_value, exc_traceback):
         sys.__stderr__.write("\n--- UNCAUGHT EXCEPTION ---\n")
         sys.__stderr__.write("".join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
