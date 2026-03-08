@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QCheckBox
 )
 from selenium import webdriver
+from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -105,10 +106,15 @@ class TestAutomationTool(QMainWindow):
         buttons_layout.addWidget(self.start_button)
         controls_layout.addLayout(buttons_layout)
 
+        checkboxes_layout = QHBoxLayout()
         self.assertion_checkbox = QCheckBox("Assertion Mode")
         self.assertion_checkbox.setObjectName("assertion_checkbox")
         self.assertion_checkbox.setEnabled(True)
-        controls_layout.addWidget(self.assertion_checkbox)
+        self.headless_checkbox = QCheckBox("Headless Mode")
+        self.headless_checkbox.setObjectName("headless_checkbox")
+        checkboxes_layout.addWidget(self.assertion_checkbox)
+        checkboxes_layout.addWidget(self.headless_checkbox)
+        controls_layout.addLayout(checkboxes_layout)
 
         file_ops_layout = QHBoxLayout()
         self.save_button = QPushButton("Save Test")
@@ -233,12 +239,14 @@ class TestAutomationTool(QMainWindow):
         self.record_button.setEnabled(False)
         self.start_button.setEnabled(False)
         self.assertion_checkbox.setEnabled(False)
+        self.headless_checkbox.setEnabled(False)
+
         self.recorded_actions = []
         self.steps_table.setRowCount(0)
 
         try:
-            options = webdriver.ChromeOptions()
-            options.browser_version = 'dev'
+            options = ChromeOptions()
+            # options.browser_version = 'dev' # This might not be needed anymore
             self.driver = webdriver.Chrome(options=options)
             self.driver.get(self.saved_url)
             
@@ -322,6 +330,7 @@ class TestAutomationTool(QMainWindow):
         self.record_button.setEnabled(True)
         self.start_button.setEnabled(True)
         self.assertion_checkbox.setEnabled(True)
+        self.headless_checkbox.setEnabled(True)
 
         if self.recorded_actions:
             print(f"\n--- Total Actions Recorded: {len(self.recorded_actions)} ---")
@@ -371,13 +380,19 @@ class TestAutomationTool(QMainWindow):
             return
 
         print("--- Starting Test Execution ---")
+        if self.headless_checkbox.isChecked():
+            print("Running in HEADLESS mode.")
         self.record_button.setEnabled(False)
         self.start_button.setEnabled(False)
         self.assertion_checkbox.setEnabled(False)
+        self.headless_checkbox.setEnabled(False)
 
         try:
-            options = webdriver.ChromeOptions()
-            options.browser_version = 'dev'
+            options = ChromeOptions()
+            if self.headless_checkbox.isChecked():
+                options.add_argument("--headless")
+                options.add_argument("--disable-gpu")
+
             self.test_driver = webdriver.Chrome(options=options)
             self.test_driver.get(self.saved_url)
             wait = WebDriverWait(self.test_driver, 10)
@@ -419,6 +434,7 @@ class TestAutomationTool(QMainWindow):
             self.record_button.setEnabled(True)
             self.start_button.setEnabled(True)
             self.assertion_checkbox.setEnabled(True)
+            self.headless_checkbox.setEnabled(True)
             
     def save_test(self):
         if not self.recorded_actions:
