@@ -148,6 +148,7 @@ class TestAutomationTool(QMainWindow):
         self.steps_table = DeletableTableWidget()
         self.steps_table.setColumnCount(4)
         self.steps_table.setHorizontalHeaderLabels(["Step", "Action", "Selector", "Value"])
+        self.steps_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         header = self.steps_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
